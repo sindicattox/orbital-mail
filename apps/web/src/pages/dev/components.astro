@@ -1,0 +1,150 @@
+---
+const apiBase = import.meta.env.PROD
+  ? (import.meta.env.PUBLIC_REMOTE_API_URL || "/api/mail")
+  : (import.meta.env.PUBLIC_LOCAL_API_URL || "http://127.0.0.1:8104/api/mail");
+---
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Sandbox | Orbital Mail</title>
+    <style>
+      :root { font-family: Inter, system-ui, sans-serif; color:#172033; background:#f3f5f8; }
+      * { box-sizing:border-box; }
+      body { margin:0; padding:32px; }
+      main { max-width:1180px; margin:0 auto; }
+      .panel { background:#fff; border:1px solid #dfe4ec; border-radius:14px; padding:22px; box-shadow:0 8px 30px rgba(15,23,42,.06); }
+      .head { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+      h1 { margin:0 0 8px; font-size:26px; }
+      p { color:#596579; }
+      .meta { display:grid; gap:8px; margin:18px 0; padding:14px; border-radius:10px; background:#f7f8fa; font-size:13px; }
+      .meta div { display:grid; grid-template-columns:110px minmax(0,1fr); gap:10px; }
+      code { overflow-wrap:anywhere; }
+      .actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+      button { border:0; border-radius:9px; padding:10px 16px; font:inherit; cursor:pointer; }
+      button:disabled { opacity:.6; cursor:wait; }
+      .primary { background:#315efb; color:#fff; }
+      .secondary { background:#eef1f6; color:#172033; }
+      .status { display:inline-flex; align-items:center; min-height:34px; padding:7px 11px; border-radius:999px; background:#eef1f6; color:#475467; font-size:13px; font-weight:650; }
+      .status.ok { background:#e8f7ee; color:#067647; }
+      .status.error { background:#fff0ee; color:#b42318; }
+      .diagnostic { margin-top:16px; min-height:22px; color:#596579; font-size:13px; white-space:pre-wrap; }
+      dialog { width:min(1480px,calc(100vw - 24px)); height:min(900px,calc(100vh - 24px)); border:0; border-radius:14px; padding:0; box-shadow:0 24px 80px rgba(0,0,0,.25); }
+      dialog::backdrop { background:rgba(15,23,42,.58); }
+      .dialog-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid #dfe4ec; background:#fff; }
+      .dialog-body { height:calc(100% - 61px); padding:18px; overflow:auto; background:#f7f8fa; }
+      .dialog-body iframe { width:100%; height:100%; border:0; border-radius:10px; background:#fff; }
+      .component-tabs { display:flex; gap:8px; margin-bottom:14px; }
+      .component-tabs button.active { background:#315efb; color:#fff; }
+      @media (max-width:720px) { body{padding:16px}.head{display:block}.meta div{grid-template-columns:1fr}.status{margin-top:10px} }
+</style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <div class="head">
+          <div>
+            <h1>Sandbox do Orbital Mail</h1>
+            <p>Teste standalone do módulo com a API real configurada no próprio <code>apps/web/.env</code>.</p>
+          </div>
+          <span class="status" data-status>API não testada</span>
+        </div>
+        <div class="meta">
+          <div><strong>Origem Web</strong><code data-web-origin></code></div>
+          <div><strong>API do módulo</strong><code data-api-base></code></div>
+          <div><strong>Health</strong><code data-health-url></code></div>
+          <div><strong>CORS esperado</strong><code>APP_CORS_ORIGINS deve conter a Origem Web em CSV simples</code></div>
+        </div>
+        <div class="actions">
+          <button class="secondary" type="button" data-test-api>Testar API</button>
+          <button class="primary" type="button" data-open-module>Abrir teste real de envio</button>
+        </div>
+        <div class="diagnostic" data-diagnostic></div>
+      </section>
+    </main>
+
+    <dialog data-dialog>
+      <div class="dialog-head"><strong>Teste de envio do Orbital Mail</strong><button class="secondary" type="button" data-close>Fechar</button></div>
+      <div class="dialog-body" data-dialog-body></div>
+    </dialog>
+
+    <script define:vars={{ apiBase }}>
+      const status = document.querySelector('[data-status]');
+      const diagnostic = document.querySelector('[data-diagnostic]');
+      const testButton = document.querySelector('[data-test-api]');
+      const openButton = document.querySelector('[data-open-module]');
+      const dialog = document.querySelector('[data-dialog]');
+      const dialogBody = document.querySelector('[data-dialog-body]');
+      const resolvedApi = new URL(apiBase, window.location.origin);
+      const healthUrl = new URL('/api/health', resolvedApi.origin).toString();
+
+      document.querySelector('[data-web-origin]').textContent = window.location.origin;
+      document.querySelector('[data-api-base]').textContent = resolvedApi.toString();
+      document.querySelector('[data-health-url]').textContent = healthUrl;
+
+      function setStatus(kind, label, details = '') {
+        status.className = `status ${kind || ''}`.trim();
+        status.textContent = label;
+        diagnostic.textContent = details;
+      }
+
+      async function checkApi() {
+        testButton.disabled = true;
+        openButton.disabled = true;
+        setStatus('', 'Testando API...', `GET ${healthUrl}`);
+        try {
+          const response = await fetch(healthUrl, { credentials: 'include', cache: 'no-store' });
+          const payload = await response.json().catch(() => null);
+          if (!response.ok) {
+            throw new Error(payload?.detail || `API respondeu HTTP ${response.status}.`);
+          }
+          setStatus('ok', 'API acessível', `${payload?.app || 'Orbital Mail'} · ${payload?.environment || 'ambiente não informado'}`);
+          return true;
+        } catch (error) {
+          const networkFailure = error instanceof TypeError;
+          const details = networkFailure
+            ? `Falha de rede ou CORS ao acessar ${healthUrl}. Confirme se a API está ativa e se APP_CORS_ORIGINS contém exatamente ${window.location.origin}, em CSV simples, sem [ ], sem aspas.`
+            : `${error?.message || error} URL: ${healthUrl}`;
+          setStatus('error', 'API indisponível', details);
+          console.error('[orbital-sandbox] Falha no diagnóstico da API', { apiBase, healthUrl, webOrigin: window.location.origin, error });
+          return false;
+        } finally {
+          testButton.disabled = false;
+          openButton.disabled = false;
+        }
+      }
+
+      async function mountModule() {
+        const frame = document.createElement('iframe');
+        frame.src = '/teste-envio';
+        frame.title = 'Teste de envio do Orbital Mail';
+        dialogBody.append(frame);
+      }
+
+      testButton.addEventListener('click', checkApi);
+      openButton.addEventListener('click', async () => {
+        const healthy = await checkApi();
+        dialogBody.replaceChildren();
+        dialog.showModal();
+        if (!healthy) {
+          const message = document.createElement('p');
+          message.textContent = diagnostic.textContent;
+          dialogBody.append(message);
+          return;
+        }
+        try {
+          await mountModule();
+        } catch (error) {
+          const message = document.createElement('p');
+          message.textContent = `Falha ao carregar o módulo: ${error?.message || error}`;
+          dialogBody.append(message);
+          console.error('[orbital-sandbox] Falha ao montar módulo', error);
+        }
+      });
+      document.querySelector('[data-close]').addEventListener('click', () => dialog.close());
+      dialog.addEventListener('close', () => dialogBody.replaceChildren());
+      checkApi();
+    </script>
+  </body>
+</html>

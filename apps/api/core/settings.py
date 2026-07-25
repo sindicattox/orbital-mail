@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -78,9 +79,28 @@ class Settings(BaseSettings):
 
     @field_validator("cors_origins", mode="before")
     @classmethod
-    def parse_csv(cls, value):
+    def parse_cors_origins(cls, value):
         if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith("["):
+                try:
+                    value = json.loads(raw)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        "APP_CORS_ORIGINS deve usar CSV simples, sem colchetes e sem aspas."
+                    ) from exc
+            else:
+                value = raw.split(",")
+
+        if isinstance(value, (list, tuple, set)):
+            origins = []
+            for item in value:
+                origin = str(item).strip().strip('"').strip("'").rstrip("/")
+                if origin and origin not in origins:
+                    origins.append(origin)
+            return origins
         return value
 
     @field_validator("auth_mode")
