@@ -1,6 +1,8 @@
+> Ambiente: use `apps/api/.env` para a API e `apps/web/.env` para a Web. Cada aplicação é independente.
+
 # Orbital Mail
 
-Módulo de campanhas de e-mail nas portas 4102/8102.
+Módulo de campanhas de e-mail nas portas 4104/8104.
 
 ## Contexto autenticado
 
@@ -10,7 +12,7 @@ Em modo remoto:
 
 ```env
 AUTH_MODE=remote
-ORBITAL_AUTH_CONTEXT_URL=http://127.0.0.1:8001/auth/context
+AUTH_CONTEXT_URL=http://127.0.0.1:8001/auth/context
 ```
 
 Em `AUTH_MODE=disabled`, apenas para teste técnico via curl, envie o cabeçalho `X-Tenant-Code`. Nenhum tenant fica fixado no `.env`.
@@ -20,7 +22,7 @@ Em `AUTH_MODE=disabled`, apenas para teste técnico via curl, envie o cabeçalho
 O diretório físico deve ficar fora do projeto:
 
 ```env
-MAIL_UPLOAD_DIR=/home/daniel/Code/data/orbital-mail/uploads
+EMAIL_UPLOAD_DIR=/home/daniel/Code/data/orbital-mail/uploads
 ```
 
 A API separa os arquivos por tenant:
@@ -29,10 +31,10 @@ A API separa os arquivos por tenant:
 /home/daniel/Code/data/orbital-mail/uploads/anpprev/<arquivo>
 ```
 
-`MAIL_PUBLIC_UPLOAD_URL` é a base pública usada dentro do HTML. Localmente serve para preview. No servidor, configure uma URL HTTPS pública acessível pelos clientes de e-mail.
+`EMAIL_UPLOAD_PUBLIC_URL` é a base pública usada dentro do HTML. Localmente serve para preview. No servidor, configure uma URL HTTPS pública acessível pelos clientes de e-mail.
 
 ```env
-MAIL_PUBLIC_UPLOAD_URL=https://mail.seudominio.org/uploads/mail
+EMAIL_UPLOAD_PUBLIC_URL=https://mail.seudominio.org/uploads/mail
 ```
 
 ## Executar

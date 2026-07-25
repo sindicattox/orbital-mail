@@ -2,7 +2,7 @@
 
 ## Ordem de aplicação
 
-1. Preserve `apps/api/.env` e `apps/api/.emails_para_teste` existentes.
+1. Preserve `./.env` e `apps/api/.emails_para_teste` existentes.
 2. Execute `database/oracle/002_email_delivery_events.sql` no schema `WKSP_SINDICATTO`.
 3. Substitua os arquivos do projeto.
 4. Reinicie o aplicativo.

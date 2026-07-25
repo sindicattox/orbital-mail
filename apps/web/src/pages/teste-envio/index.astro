@@ -1,7 +1,9 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
-const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8102/api/mail';
+const apiUrl = import.meta.env.PROD
+  ? (import.meta.env.PUBLIC_REMOTE_API_URL || '/api/mail')
+  : (import.meta.env.PUBLIC_LOCAL_API_URL || 'http://127.0.0.1:8104/api/mail');
 ---
 <AppLayout title="Teste de envio">
   <section class="page-head campaign-page-head">
@@ -13,7 +15,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8102/api/mail
   </section>
 
   <div class="notice" style="margin-bottom:1rem">
-    Esta página não usa a fila e não altera campanhas. O envio só é liberado quando <strong>MAIL_SEND_ENABLED=true</strong> na API.
+    Esta página não usa a fila e não altera campanhas. O envio só é liberado quando <strong>EMAIL_SEND_ENABLED=true</strong> na API.
   </div>
 
   <div id="message" class="message" hidden></div>
@@ -46,9 +48,9 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8102/api/mail
       <label>E-mail do destinatário <span>*</span><input name="to_email" type="email" maxlength="255" required /></label>
       <label>Nome do destinatário<input name="to_name" maxlength="255" /></label>
       <label>Assunto <span>*</span><input name="subject" maxlength="500" required /></label>
-      <label>Nome do remetente<input name="from_name" maxlength="255" placeholder="Usa MAIL_FROM_NAME se vazio" /></label>
-      <label>E-mail do remetente<input name="from_email" type="email" maxlength="255" placeholder="Usa MAIL_FROM_ADDRESS se vazio" /></label>
-      <label>Responder para<input name="reply_to" type="email" maxlength="255" placeholder="Usa MAIL_REPLY_TO se vazio" /></label>
+      <label>Nome do remetente<input name="from_name" maxlength="255" placeholder="Usa EMAIL_FROM_NAME se vazio" /></label>
+      <label>E-mail do remetente<input name="from_email" type="email" maxlength="255" placeholder="Usa EMAIL_FROM_ADDRESS se vazio" /></label>
+      <label>Responder para<input name="reply_to" type="email" maxlength="255" placeholder="Usa EMAIL_REPLY_TO se vazio" /></label>
     </section>
 
     <section class="campaign-column campaign-content-column" aria-labelledby="test-content-title">

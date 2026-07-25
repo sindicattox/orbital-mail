@@ -2,6 +2,8 @@
 # cd /home/ubuntu/apps/orbital-mail
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+[[ -f "$ROOT_DIR/apps/api/.env" ]] || { echo "Arquivo da API ausente: $ROOT_DIR/apps/api/.env" >&2; exit 1; }
+[[ -f "$ROOT_DIR/apps/web/.env" ]] || { echo "Arquivo da Web ausente: $ROOT_DIR/apps/web/.env" >&2; exit 1; }
 cd "$ROOT_DIR"
 ./deploy/local/setup-api.sh
 ./deploy/local/setup-web.sh

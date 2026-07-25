@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# cd /home/daniel/Code/orgs/orbital/orbital-mail
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WEB_DIR="$ROOT_DIR/apps/web"
+[[ -f "$WEB_DIR/.env" ]] || cp "$WEB_DIR/.env.example" "$WEB_DIR/.env"
 echo "[orbital-mail] preparando Web em $WEB_DIR"
 cd "$WEB_DIR"
+rm -rf .astro dist
 npm install
-[[ -f .env ]] || cp .env.example .env
 echo "Web preparada com sucesso."

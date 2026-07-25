@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev --host 0.0.0.0 --port 4102 --strictPort",
+    "dev": "astro dev",
     "build": "astro build",
-    "start": "HOST=127.0.0.1 PORT=4102 node ./dist/server/entry.mjs",
+    "start": "node ./dist/server/entry.mjs",
     "check": "astro check"
   },
   "dependencies": {

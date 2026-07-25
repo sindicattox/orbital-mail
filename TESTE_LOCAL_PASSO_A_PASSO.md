@@ -7,7 +7,7 @@ Execute uma etapa por vez e pare caso apareça erro.
 Confirme que estes arquivos continuam no seu projeto local e não vieram do ZIP:
 
 ```bash
-ls -la apps/api/.env apps/api/.emails_para_teste
+ls -la ./.env apps/api/.emails_para_teste
 ```
 
 ## Etapa 2 — banco
@@ -25,7 +25,7 @@ cd /home/daniel/Code/orgs/orbital/orbital-mail
 ## Etapa 4 — saúde da API
 
 ```bash
-curl -i http://127.0.0.1:8102/api/health
+curl -i http://127.0.0.1:8104/api/health
 ```
 
 Esperado: HTTP 200.

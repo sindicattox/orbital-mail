@@ -2,7 +2,9 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
 const { id } = Astro.params;
-const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8102/api/mail';
+const apiUrl = import.meta.env.PROD
+  ? (import.meta.env.PUBLIC_REMOTE_API_URL || '/api/mail')
+  : (import.meta.env.PUBLIC_LOCAL_API_URL || 'http://127.0.0.1:8104/api/mail');
 ---
 <AppLayout title="Editar campanha">
   <section class="page-head campaign-page-head">

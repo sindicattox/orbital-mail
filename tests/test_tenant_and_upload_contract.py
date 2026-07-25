@@ -41,4 +41,4 @@ def test_disabled_auth_uses_explicit_dev_tenant_from_settings():
     assert 'dev_tenant_code' in settings
     assert 'settings.dev_tenant_code' in auth
     assert 'x-tenant-code' not in auth.lower()
-    assert 'DEV_TENANT_CODE=anpprev' in env_example
+    assert 'AUTH_DEV_TENANT_CODE=anpprev' in env_example

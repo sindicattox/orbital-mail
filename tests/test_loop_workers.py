@@ -26,10 +26,10 @@ def test_loop_page_and_api_contract():
 
 def test_loop_limits_are_environment_settings():
     settings = (API / 'core/settings.py').read_text()
-    example = (API / '.env.example').read_text()
+    example = (ROOT / 'apps/api/.env.example').read_text()
     for name in ('mail_test_max_workers', 'mail_test_max_recipients', 'mail_test_max_repetitions', 'mail_test_max_messages'):
         assert name in settings
-    for name in ('MAIL_TEST_MAX_WORKERS', 'MAIL_TEST_MAX_RECIPIENTS', 'MAIL_TEST_MAX_REPETITIONS', 'MAIL_TEST_MAX_MESSAGES'):
+    for name in ('EMAIL_TEST_MAX_WORKERS', 'EMAIL_TEST_MAX_RECIPIENTS', 'EMAIL_TEST_MAX_REPETITIONS', 'EMAIL_TEST_MAX_MESSAGES'):
         assert name in example
 
 
@@ -42,7 +42,7 @@ def test_test_email_allowlist_is_a_separate_private_file():
     assert 'Destinatário(s) não autorizado(s)' in service
     assert 'apps/api/.emails_para_teste' in page
     assert 'readonly' in page
-    assert 'MAIL_TEST_RECIPIENT_ALLOWLIST' not in (API / '.env.example').read_text()
+    assert 'MAIL_TEST_RECIPIENT_ALLOWLIST' not in (ROOT / 'apps/api/.env.example').read_text()
     assert 'apps/api/.emails_para_teste' in gitignore
     assert (API / '.emails_para_teste.example').is_file()
 

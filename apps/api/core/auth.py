@@ -56,12 +56,12 @@ async def get_auth_context(
 
     if settings.auth_mode == "disabled":
         # Desenvolvimento local independente do Orbital. O tenant simulado vem
-        # exclusivamente de DEV_TENANT_CODE e nunca precisa ser enviado pelo frontend.
+        # exclusivamente de AUTH_DEV_TENANT_CODE e nunca precisa ser enviado pelo frontend.
         tenant_code = str(settings.dev_tenant_code or "").strip().lower()
         if not tenant_code:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="DEV_TENANT_CODE não configurado para AUTH_MODE=disabled.",
+                detail="AUTH_DEV_TENANT_CODE não configurado para AUTH_MODE=disabled.",
             )
         return AuthContext(
             user_id=settings.dev_user_id,
@@ -73,16 +73,16 @@ async def get_auth_context(
     token = _extract_token(request, authorization)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token não informado.")
-    if not settings.orbital_auth_context_url:
+    if not settings.auth_context_url:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="ORBITAL_AUTH_CONTEXT_URL não configurada.",
+            detail="AUTH_CONTEXT_URL não configurada.",
         )
 
     try:
         async with httpx.AsyncClient(timeout=settings.auth_timeout_seconds) as client:
             response = await client.get(
-                settings.orbital_auth_context_url,
+                settings.auth_context_url,
                 headers={"Authorization": f"Bearer {token}"},
                 cookies=request.cookies,
             )

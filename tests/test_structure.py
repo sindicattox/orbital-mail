@@ -25,9 +25,9 @@ def test_required_structure():
 
 
 def test_ports():
-    assert "4102" in (ROOT / "apps/web/package.json").read_text()
-    assert "8102" in (ROOT / "deploy/local/start-api.sh").read_text()
+    assert "APP_PORT=4104" in (ROOT / "apps/web/.env.example").read_text()
+    assert "APP_PORT=8104" in (ROOT / "apps/api/.env.example").read_text()
 
 
 def test_real_mail_is_disabled_by_default():
-    assert "MAIL_PROVIDER=disabled" in (ROOT / "apps/api/.env.example").read_text()
+    assert "EMAIL_PROVIDER=disabled" in (ROOT / "apps/api/.env.example").read_text()

@@ -56,7 +56,7 @@ def _resolve_sender(payload: TestSendPayload) -> tuple[str, str, str | None]:
     settings = get_settings()
     from_email = str(payload.from_email or settings.mail_from_address or "").strip()
     if not from_email:
-        raise HTTPException(status_code=503, detail="MAIL_FROM_ADDRESS não configurado.")
+        raise HTTPException(status_code=503, detail="EMAIL_FROM_ADDRESS não configurado.")
     from_name = (payload.from_name or settings.mail_from_name or "Orbital Mail").strip()
     reply_to = str(payload.reply_to or settings.mail_reply_to or "").strip() or None
     return from_email, from_name, reply_to
@@ -263,7 +263,7 @@ def send_test_email(payload: TestSendPayload, context: AuthContext = Depends(get
     if not settings.mail_send_enabled:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Envio bloqueado. Configure MAIL_SEND_ENABLED=true somente para executar o teste.",
+            detail="Envio bloqueado. Configure EMAIL_SEND_ENABLED=true somente para executar o teste.",
         )
     if payload.provider == "smtp2go":
         return _send_smtp2go(payload)

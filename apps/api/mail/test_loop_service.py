@@ -441,7 +441,7 @@ def start_loop_test(payload: LoopTestStart, db: Session = Depends(get_db), auth:
     auth.require("mail.send")
     settings = get_settings()
     if not settings.mail_send_enabled:
-        raise HTTPException(status_code=409, detail="Envio bloqueado. Configure MAIL_SEND_ENABLED=true.")
+        raise HTTPException(status_code=409, detail="Envio bloqueado. Configure EMAIL_SEND_ENABLED=true.")
     configured_emails = _load_test_emails()
     requested_emails = _dedupe_emails(payload.emails or [])
     if requested_emails:

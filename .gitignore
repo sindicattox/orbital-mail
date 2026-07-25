@@ -15,3 +15,7 @@ logs/
 # Lista local e privada de destinatários usados em testes de envio
 apps/api/.emails_para_teste
 !apps/api/.emails_para_teste.example
+
+# Arquivos reais de ambiente por aplicação
+**/.env
+!**/.env.example

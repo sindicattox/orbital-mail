@@ -21,7 +21,7 @@ def test_home_and_navigation_link_to_test_send():
 def test_env_documents_both_providers_and_send_lock():
     env = (ROOT / "apps/api/.env.example").read_text()
     for key in [
-        "MAIL_SEND_ENABLED=false",
+        "EMAIL_SEND_ENABLED=false",
         "SMTP2GO_API_KEY=",
         "SMTP_HOST=",
         "SMTP_PORT=587",
