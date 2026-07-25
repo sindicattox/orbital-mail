@@ -1,0 +1,72 @@
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033;background:#f4f7fb;--surface:#fff;--border:#dbe3ee;--muted:#667085;--primary:#175cd3}*{box-sizing:border-box}body{margin:0}.app-shell{min-height:100vh}.app-header{height:58px;display:flex;align-items:center;gap:1rem;padding:0 1.25rem;border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0;z-index:10}.brand{text-decoration:none;color:inherit;font-weight:800}.app-header nav{display:flex;gap:.25rem;margin-left:auto}.nav-link{text-decoration:none;color:#475467;padding:.55rem .75rem;border-radius:.5rem;font-size:.9rem}.nav-link:hover,.nav-link.active{background:#eff4ff;color:#1849a9}.app-main{padding:1.5rem;max-width:1500px;margin:0 auto}.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem}.page-head h1{margin:0;font-size:1.55rem}.page-head p{margin:.35rem 0 0;color:var(--muted)}.button{border:0;border-radius:.55rem;background:var(--primary);color:white;padding:.7rem 1rem;font-weight:700;text-decoration:none;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}.card{background:var(--surface);border:1px solid var(--border);border-radius:.8rem;padding:1rem}.metric{font-size:1.8rem;font-weight:800;margin-top:.4rem}.muted{color:var(--muted)}.table-wrap{background:#fff;border:1px solid var(--border);border-radius:.8rem;overflow:hidden}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.85rem 1rem;border-bottom:1px solid #eaecf0;font-size:.9rem}th{background:#f9fafb;color:#475467}.empty{text-align:center;padding:3rem 1rem;color:var(--muted)}.badge{display:inline-flex;padding:.25rem .55rem;border-radius:999px;background:#f2f4f7;font-size:.78rem}.notice{background:#fffaeb;border:1px solid #fedf89;border-radius:.7rem;padding:1rem;color:#93370d}@media(max-width:800px){.app-header nav{display:none}.grid{grid-template-columns:1fr}.page-head{flex-direction:column}}
+.campaign-form{max-width:980px;display:grid;gap:1rem}.campaign-form label{display:grid;gap:.4rem;font-weight:650;color:#344054}.campaign-form label span{color:#d92d20}.campaign-form input,.campaign-form textarea,.campaign-form select{width:100%;border:1px solid #cfd8e5;border-radius:.55rem;padding:.75rem;font:inherit;background:#fff;color:#172033}.campaign-form textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.campaign-form input:focus,.campaign-form textarea:focus,.campaign-form select:focus{outline:3px solid #dbeafe;border-color:#175cd3}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.form-actions{display:flex;justify-content:flex-end;gap:.75rem}.button.secondary{background:#fff;color:#344054;border:1px solid #cfd8e5}.actions{white-space:nowrap}.icon-button{display:inline-flex;border:0;background:transparent;color:#175cd3;text-decoration:none;font:inherit;font-weight:700;cursor:pointer;padding:.3rem}.icon-button.danger{color:#b42318}.actions+td{min-width:180px}td small{display:block;color:var(--muted);margin-top:.2rem}.message{border-radius:.65rem;padding:.8rem 1rem;margin-bottom:1rem}.message.error{background:#fef3f2;border:1px solid #fecdca;color:#b42318}.message.success{background:#ecfdf3;border:1px solid #abefc6;color:#067647}button:disabled{opacity:.6;cursor:not-allowed}@media(max-width:800px){.form-grid{grid-template-columns:1fr}.table-wrap{overflow:auto}}
+
+/* Formulário de campanha em duas colunas: dados à esquerda e conteúdo à direita. */
+.campaign-page-head{margin-bottom:.85rem}
+.campaign-page-head p{font-size:.9rem}
+.campaign-form-two-columns{
+  max-width:none;
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(280px,.72fr) minmax(440px,1.28fr);
+  gap:0;
+  padding:0;
+  overflow:hidden;
+}
+.campaign-column{
+  display:grid;
+  align-content:start;
+  gap:.78rem;
+  padding:1rem 1.1rem;
+}
+.campaign-data-column{border-right:1px solid var(--border);background:#fbfcfe}
+.campaign-content-column{background:#fff}
+.form-section-head{padding-bottom:.15rem}
+.form-section-head h2{margin:0;font-size:1rem;color:#172033}
+.form-section-head p{margin:.22rem 0 0;color:var(--muted);font-size:.8rem}
+.campaign-form-two-columns label{gap:.28rem;font-size:.84rem}
+.campaign-form-two-columns input,
+.campaign-form-two-columns select,
+.campaign-form-two-columns textarea{padding:.58rem .68rem;border-radius:.45rem;font-size:.88rem}
+.campaign-form-two-columns .html-field textarea{
+  min-height:390px;
+  height:calc(100vh - 355px);
+  max-height:620px;
+}
+.campaign-form-two-columns .text-field textarea{min-height:100px;max-height:170px}
+.form-actions-full{
+  grid-column:1/-1;
+  padding:.8rem 1.1rem;
+  border-top:1px solid var(--border);
+  background:#f9fafb;
+}
+@media(max-width:980px){
+  .campaign-form-two-columns{grid-template-columns:1fr}
+  .campaign-data-column{border-right:0;border-bottom:1px solid var(--border)}
+  .campaign-form-two-columns .html-field textarea{height:360px;min-height:300px}
+}
+.campaign-content-column .html-field{display:block;min-width:0}
+.campaign-content-column orbital-html-editor{min-height:0}
+
+.queue-dialog {
+  width: min(560px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 28%);
+}
+.queue-dialog::backdrop { background: rgb(15 23 42 / 48%); }
+.queue-card { display: grid; gap: 16px; padding: 20px; }
+.queue-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.queue-head h2 { margin: 0; font-size: 1.12rem; }
+.queue-head p { margin: 4px 0 0; color: var(--muted); }
+.queue-progress-box { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.queue-progress-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.queue-progress-box progress { width: 100%; height: 12px; }
+.queue-progress-box p { margin: 8px 0 0; color: var(--muted); font-size: .86rem; }
+.queue-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.queue-summary span { padding: 10px; border: 1px solid var(--border); border-radius: 8px; text-align: center; font-size: .78rem; }
+.queue-summary strong { display: block; font-size: 1.1rem; }
+.queue-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 560px) { .queue-summary { grid-template-columns: repeat(2, 1fr); } }
+

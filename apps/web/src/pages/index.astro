@@ -1,0 +1,24 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+---
+<AppLayout title="Visão geral" description="Painel inicial do Orbital Mail">
+  <section class="page-head">
+    <div><h1>Orbital Mail</h1><p>Aplicação independente para listas, contatos, modelos e campanhas de e-mail.</p></div>
+    <a class="button" href="/campanhas/nova">Nova campanha</a>
+  </section>
+  <section class="grid">
+    <article class="card"><span class="muted">Campanhas</span><div class="metric">0</div></article>
+    <article class="card"><span class="muted">Rascunhos</span><div class="metric">0</div></article>
+    <article class="card"><span class="muted">Enviadas</span><div class="metric">0</div></article>
+  </section>
+  <section class="card" style="margin-top:1rem">
+    <h2 style="margin-top:0">Teste do provedor de envio</h2>
+    <p class="muted">Valide SMTP2GO ou SMTP tradicional com o mesmo editor HTML usado nas campanhas, sem criar fila e sem alterar campanhas.</p>
+    <a class="button" href="/teste-envio">Abrir teste de envio</a>
+    <a class="button secondary" href="/teste-loop" style="margin-left:.5rem">Testar loop e workers</a>
+  </section>
+  <section class="card" style="margin-top:1rem">
+    <h2 style="margin-top:0">Estrutura inicial pronta</h2>
+    <p class="muted">O Orbital Mail possui banco e dados próprios. O envio permanece bloqueado até configurar um provedor e liberar MAIL_SEND_ENABLED.</p>
+  </section>
+</AppLayout>

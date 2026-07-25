@@ -1,0 +1,65 @@
+---
+import './editor.css';
+
+interface Props {
+  name?: string;
+  id?: string;
+  label?: string;
+  placeholder?: string;
+  uploadUrl?: string;
+  value?: string;
+  minHeight?: string;
+}
+
+const {
+  name = 'body_html',
+  id = 'bodyHtmlEditor',
+  label = 'HTML do e-mail',
+  placeholder = 'Digite ou cole o conteúdo do e-mail...',
+  uploadUrl = 'http://127.0.0.1:8102/api/mail/images',
+  value = '',
+  minHeight = '360px',
+} = Astro.props;
+---
+
+<label class="orbital-editor-label" for={`${id}-content`}>{label}</label>
+<orbital-html-editor
+  id={id}
+  upload-url={uploadUrl}
+  placeholder={placeholder}
+  style={`--orbital-editor-min-height:${minHeight}`}
+>
+  <div class="orbital-editor-shell">
+    <div class="orbital-editor-toolbar" role="toolbar" aria-label="Formatação do conteúdo">
+      <button type="button" data-command="bold" title="Negrito"><strong>B</strong></button>
+      <button type="button" data-command="italic" title="Itálico"><em>I</em></button>
+      <button type="button" data-command="underline" title="Sublinhado"><u>U</u></button>
+      <span class="orbital-editor-separator"></span>
+      <button type="button" data-block="h2" title="Título">H2</button>
+      <button type="button" data-block="p" title="Parágrafo">P</button>
+      <button type="button" data-command="insertUnorderedList" title="Lista">• Lista</button>
+      <button type="button" data-action="link" title="Inserir link">Link</button>
+      <button type="button" data-action="image" title="Inserir ou colar imagem">Imagem</button>
+      <button type="button" data-action="source" title="Ver ou editar HTML">HTML</button>
+      <input type="file" data-image-input accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+    </div>
+
+    <div
+      id={`${id}-content`}
+      class="orbital-editor-content"
+      contenteditable="true"
+      data-editor-content
+      data-placeholder={placeholder}
+      aria-label={label}
+    ></div>
+
+    <textarea class="orbital-editor-source" data-editor-source spellcheck="false" hidden></textarea>
+    <div class="orbital-editor-status" data-editor-status aria-live="polite">Cole imagens com Ctrl+V ou use o botão Imagem.</div>
+  </div>
+
+  <textarea name={name} data-editor-value hidden>{value}</textarea>
+</orbital-html-editor>
+
+<script>
+  import './editor.js';
+</script>

@@ -1,0 +1,60 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+const { id } = Astro.params;
+const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8102/api/mail';
+---
+<AppLayout title="Destinatários da campanha">
+  <section class="page-head">
+    <div><h1>Destinatários</h1><p id="campaignName">Fila preparada para a campanha.</p></div>
+    <a class="button secondary" href="/campanhas">Voltar às campanhas</a>
+  </section>
+
+  <form id="filters" class="card list-filters">
+    <label>Buscar<input id="search" type="search" placeholder="Nome ou e-mail" /></label>
+    <label>Status<select id="status"><option value="">Todos</option><option value="pending">Pendente</option><option value="processing">Processando</option><option value="sent">Enviado</option><option value="error">Erro</option><option value="invalid_email">E-mail inválido</option></select></label>
+    <label>Linhas<select id="pageSize"><option>25</option><option selected>50</option><option>100</option><option>200</option></select></label>
+    <button class="button" type="submit">Filtrar</button>
+  </form>
+
+  <div id="message" class="message" hidden></div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Nome</th><th>E-mail</th><th>Situação associativa</th><th>Situação funcional</th><th>Status</th><th>Tentativas</th><th>Última tentativa</th><th>Erro</th></tr></thead>
+      <tbody id="recipientRows"><tr><td colspan="8" class="empty">Carregando destinatários...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="pagination-bar"><span id="paginationText">0 registros</span><div><button id="previous" class="button secondary" type="button">Anterior</button><button id="next" class="button secondary" type="button">Próxima</button></div></div>
+</AppLayout>
+
+<script define:vars={{ apiUrl, id }}>
+  const rows = document.querySelector('#recipientRows');
+  const form = document.querySelector('#filters');
+  const message = document.querySelector('#message');
+  let page = 1;
+  let pages = 1;
+  const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+  const formatDate = value => value ? new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value)) : '—';
+  const statusLabel = value => ({pending:'Pendente',processing:'Processando',sent:'Enviado',error:'Erro',invalid_email:'E-mail inválido'}[value] || value || '—');
+  function showError(text=''){ message.hidden=!text; message.className='message error'; message.textContent=text; }
+  async function loadCampaign(){
+    const response=await fetch(`${apiUrl}/campaigns/${id}`,{credentials:'include'}); const data=await response.json().catch(()=>({}));
+    if(response.ok) document.querySelector('#campaignName').textContent=`Campanha: ${data.internal_name}`;
+  }
+  async function load(){
+    showError(); rows.innerHTML='<tr><td colspan="8" class="empty">Carregando destinatários...</td></tr>';
+    const query=new URLSearchParams({page:String(page),page_size:document.querySelector('#pageSize').value});
+    const search=document.querySelector('#search').value.trim(); const status=document.querySelector('#status').value;
+    if(search) query.set('search',search); if(status) query.set('status_filter',status);
+    try{
+      const response=await fetch(`${apiUrl}/campaigns/${id}/recipients?${query}`,{credentials:'include'}); const data=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(data.detail || 'Não foi possível carregar os destinatários.');
+      pages=data.pages; document.querySelector('#paginationText').textContent=`Página ${data.page} de ${data.pages} · ${data.total} registros`;
+      document.querySelector('#previous').disabled=page<=1; document.querySelector('#next').disabled=page>=pages;
+      rows.innerHTML=data.items.length ? data.items.map(item=>`<tr><td>${escapeHtml(item.name||'—')}</td><td>${escapeHtml(item.email)}</td><td>${escapeHtml(item.br_situacao_associativa_name||item.br_situacao_associativa_code||'—')}</td><td>${escapeHtml(item.br_situacao_funcional_name||item.br_situacao_funcional_code||'—')}</td><td><span class="status-badge status-${escapeHtml(item.status)}">${escapeHtml(statusLabel(item.status))}</span></td><td>${Number(item.try_count||0)}</td><td>${formatDate(item.last_try)}</td><td class="error-cell" title="${escapeHtml(item.error||'')}">${escapeHtml(item.error||'—')}</td></tr>`).join('') : '<tr><td colspan="8" class="empty">Nenhum destinatário preparado.</td></tr>';
+    }catch(error){showError(error.message); rows.innerHTML='<tr><td colspan="8" class="empty">Falha ao carregar.</td></tr>';}
+  }
+  form.addEventListener('submit',event=>{event.preventDefault();page=1;load();});
+  document.querySelector('#previous').addEventListener('click',()=>{if(page>1){page--;load();}});
+  document.querySelector('#next').addEventListener('click',()=>{if(page<pages){page++;load();}});
+  loadCampaign(); load();
+</script>

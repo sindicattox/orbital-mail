@@ -1,0 +1,262 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8102/api/mail';
+---
+<AppLayout title="Campanhas">
+  <section class="page-head">
+    <div><h1>Campanhas</h1><p>Cadastre e mantenha as campanhas salvas no Oracle.</p></div>
+    <a class="button" href="/campanhas/nova">Nova campanha</a>
+  </section>
+
+  <div id="message" class="message" hidden></div>
+  <dialog id="queueDialog" class="queue-dialog">
+    <form method="dialog" class="queue-card" id="queueForm">
+      <div class="queue-head">
+        <div><h2>Preparar destinatários</h2><p id="queueCampaignName">Campanha</p></div>
+        <button class="icon-button" value="cancel" aria-label="Fechar">Fechar</button>
+      </div>
+      <div class="form-grid compact-grid">
+        <label>Situação associativa
+          <select id="queueAssociative"><option value="">Todas</option></select>
+        </label>
+        <label>Situação funcional
+          <select id="queueFunctional"><option value="">Todas</option></select>
+        </label>
+      </div>
+      <div id="queueProgressBox" class="queue-progress-box" hidden>
+        <div class="queue-progress-row"><strong id="queueProgressText">0 de 0</strong><span id="queueProgressPercent">0%</span></div>
+        <progress id="queueProgress" value="0" max="100"></progress>
+        <p id="queueProgressDetail">Preparando fila...</p>
+      </div>
+      <div id="queueSummary" class="queue-summary" hidden></div>
+      <div id="queueError" class="message error" hidden></div>
+      <div class="queue-actions">
+        <button id="clearQueueButton" class="button secondary danger" type="button" hidden>Limpar fila</button>
+        <button class="button secondary" value="cancel">Cancelar</button>
+        <button id="prepareQueueButton" class="button" type="button">Preparar fila</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Ações</th><th>Nome interno</th><th>Assunto</th><th>Remetente</th><th>Status</th><th>Atualização</th></tr></thead>
+      <tbody id="campaignRows"><tr><td colspan="6" class="empty">Carregando campanhas...</td></tr></tbody>
+    </table>
+  </div>
+</AppLayout>
+
+<script define:vars={{ apiUrl }}>
+  const rows = document.querySelector('#campaignRows');
+  const message = document.querySelector('#message');
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+  }
+
+  function formatDate(value) {
+    if (!value) return '—';
+    return new Intl.DateTimeFormat('pt-BR', {dateStyle:'short', timeStyle:'short'}).format(new Date(value));
+  }
+
+  function showMessage(text, type = 'error') {
+    message.hidden = false;
+    message.className = `message ${type}`;
+    message.textContent = text;
+  }
+
+  async function loadCampaigns() {
+    try {
+      const response = await fetch(`${apiUrl}/campaigns`, {credentials:'include'});
+      if (!response.ok) throw new Error('Não foi possível consultar as campanhas.');
+      const campaigns = await response.json();
+      if (!campaigns.length) {
+        rows.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma campanha cadastrada.</td></tr>';
+        return;
+      }
+      rows.innerHTML = campaigns.map(campaign => `
+        <tr>
+          <td class="actions">
+            <a class="icon-button" href="/campanhas/${campaign.id}" title="Editar">Editar</a>
+            <a class="icon-button" href="/campanhas/${campaign.id}/destinatarios">Ver fila</a>
+            <button class="icon-button" data-queue-id="${campaign.id}" data-name="${escapeHtml(campaign.internal_name)}" type="button">Preparar</button>
+            <button class="icon-button danger" data-delete-id="${campaign.id}" data-name="${escapeHtml(campaign.internal_name)}" type="button">Remover</button>
+          </td>
+          <td><strong>${escapeHtml(campaign.internal_name)}</strong></td>
+          <td>${escapeHtml(campaign.subject)}</td>
+          <td>${escapeHtml(campaign.sender_name || '')}<small>${escapeHtml(campaign.sender_email || '')}</small></td>
+          <td><span class="badge">${escapeHtml(campaign.status)}</span></td>
+          <td>${formatDate(campaign.updated_at || campaign.created_at)}</td>
+        </tr>`).join('');
+    } catch (error) {
+      rows.innerHTML = '<tr><td colspan="6" class="empty">Falha ao carregar campanhas.</td></tr>';
+      showMessage(error.message);
+    }
+  }
+
+  rows.addEventListener('click', async event => {
+    const button = event.target.closest('[data-delete-id]');
+    if (!button) return;
+    const id = button.dataset.deleteId;
+    if (!confirm(`Remover a campanha "${button.dataset.name}"?`)) return;
+    button.disabled = true;
+    try {
+      const response = await fetch(`${apiUrl}/campaigns/${id}`, {method:'DELETE',credentials:'include'});
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Não foi possível remover a campanha.');
+      }
+      showMessage('Campanha removida.', 'success');
+      await loadCampaigns();
+    } catch (error) {
+      showMessage(error.message);
+      button.disabled = false;
+    }
+  });
+
+  const queueDialog = document.querySelector('#queueDialog');
+  const queueAssociative = document.querySelector('#queueAssociative');
+  const queueFunctional = document.querySelector('#queueFunctional');
+  const prepareQueueButton = document.querySelector('#prepareQueueButton');
+  const clearQueueButton = document.querySelector('#clearQueueButton');
+  const queueProgressBox = document.querySelector('#queueProgressBox');
+  const queueProgress = document.querySelector('#queueProgress');
+  const queueProgressText = document.querySelector('#queueProgressText');
+  const queueProgressPercent = document.querySelector('#queueProgressPercent');
+  const queueProgressDetail = document.querySelector('#queueProgressDetail');
+  const queueSummary = document.querySelector('#queueSummary');
+  const queueError = document.querySelector('#queueError');
+  let selectedCampaignId = null;
+
+  function setQueueError(text = '') {
+    queueError.hidden = !text;
+    queueError.textContent = text;
+  }
+
+  function renderQueueSummary(summary) {
+    queueSummary.hidden = false;
+    queueSummary.innerHTML = `
+      <span><strong>${summary.total}</strong> preparados</span>
+      <span><strong>${summary.pending}</strong> pendentes</span>
+      <span><strong>${summary.sent}</strong> enviados</span>
+      <span><strong>${summary.errors}</strong> erros</span>`;
+    clearQueueButton.hidden = summary.total === 0;
+    prepareQueueButton.disabled = summary.total > 0;
+    queueAssociative.disabled = summary.total > 0;
+    queueFunctional.disabled = summary.total > 0;
+  }
+
+  async function readQueueSummary() {
+    const response = await fetch(`${apiUrl}/campaigns/${selectedCampaignId}/queue`, {credentials:'include'});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || 'Não foi possível consultar a fila.');
+    renderQueueSummary(data);
+  }
+
+  rows.addEventListener('click', async event => {
+    const button = event.target.closest('[data-queue-id]');
+    if (!button) return;
+    selectedCampaignId = button.dataset.queueId;
+    document.querySelector('#queueCampaignName').textContent = button.dataset.name;
+    setQueueError();
+    queueProgressBox.hidden = true;
+    queueSummary.hidden = true;
+    queueAssociative.disabled = false;
+    queueFunctional.disabled = false;
+    prepareQueueButton.disabled = false;
+    clearQueueButton.hidden = true;
+    queueDialog.showModal();
+    try { await readQueueSummary(); } catch (error) { setQueueError(error.message); }
+  });
+
+  prepareQueueButton.addEventListener('click', async () => {
+    setQueueError();
+    prepareQueueButton.disabled = true;
+    queueAssociative.disabled = true;
+    queueFunctional.disabled = true;
+    queueProgressBox.hidden = false;
+    queueSummary.hidden = true;
+    queueProgress.value = 0;
+    queueProgressText.textContent = '0 de 0';
+    queueProgressPercent.textContent = '0%';
+    queueProgressDetail.textContent = 'Contando destinatários...';
+    try {
+      const startResponse = await fetch(`${apiUrl}/campaigns/${selectedCampaignId}/queue/prepare/start`, {
+        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({associative_code:queueAssociative.value||null,functional_code:queueFunctional.value||null})
+      });
+      const start = await startResponse.json().catch(() => ({}));
+      if (!startResponse.ok) throw new Error(start.detail || 'Não foi possível iniciar a preparação.');
+      const total = start.target_total;
+      if (total === 0) {
+        queueProgress.value = 100;
+        queueProgressText.textContent = '0 de 0';
+        queueProgressPercent.textContent = '100%';
+        queueProgressDetail.textContent = 'Nenhum destinatário elegível encontrado.';
+        await readQueueSummary();
+        return;
+      }
+      let done = false;
+      while (!done) {
+        const batchResponse = await fetch(`${apiUrl}/campaigns/${selectedCampaignId}/queue/prepare/batch`, {
+          method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({associative_code:start.associative_code,functional_code:start.functional_code,cutoff:start.cutoff,target_total:total,batch_size:250})
+        });
+        const batch = await batchResponse.json().catch(() => ({}));
+        if (!batchResponse.ok) throw new Error(batch.detail || 'Falha ao inserir destinatários.');
+        const current = Math.min(batch.total, total);
+        const percent = total ? Math.min(100, Math.round((current / total) * 100)) : 100;
+        queueProgress.value = percent;
+        queueProgressText.textContent = `${current} de ${total}`;
+        queueProgressPercent.textContent = `${percent}%`;
+        queueProgressDetail.textContent = batch.done ? 'Fila preparada com sucesso.' : `Inseridos ${batch.inserted_now} neste lote...`;
+        done = batch.done;
+        await new Promise(resolve => setTimeout(resolve, 80));
+      }
+      await readQueueSummary();
+      showMessage('Fila de destinatários preparada.', 'success');
+    } catch (error) {
+      setQueueError(error.message);
+      prepareQueueButton.disabled = false;
+      queueAssociative.disabled = false;
+    queueFunctional.disabled = false;
+      try { await readQueueSummary(); } catch {}
+    }
+  });
+
+  clearQueueButton.addEventListener('click', async () => {
+    if (!confirm('Limpar todos os destinatários ainda não enviados desta campanha?')) return;
+    clearQueueButton.disabled = true;
+    setQueueError();
+    try {
+      const response = await fetch(`${apiUrl}/campaigns/${selectedCampaignId}/queue`, {method:'DELETE',credentials:'include'});
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || 'Não foi possível limpar a fila.');
+      queueProgressBox.hidden = true;
+      await readQueueSummary();
+      prepareQueueButton.disabled = false;
+      queueAssociative.disabled = false;
+    queueFunctional.disabled = false;
+    } catch (error) { setQueueError(error.message); }
+    finally { clearQueueButton.disabled = false; }
+  });
+
+  async function loadRecipientFilters() {
+    try {
+      const response = await fetch(`${apiUrl}/recipient-filters`, {credentials:'include'});
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || 'Não foi possível carregar os filtros.');
+      for (const item of data.associative || []) queueAssociative.add(new Option(item.name, item.code));
+      for (const item of data.functional || []) queueFunctional.add(new Option(item.name, item.code));
+    } catch (error) { showMessage(error.message); }
+  }
+
+  const saved = new URLSearchParams(window.location.search).get('saved');
+  if (saved) {
+    showMessage(saved === 'updated' ? 'Campanha alterada com sucesso.' : 'Campanha cadastrada com sucesso.', 'success');
+    history.replaceState({}, '', '/campanhas');
+  }
+
+  loadRecipientFilters();
+  loadCampaigns();
+</script>

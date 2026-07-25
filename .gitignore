@@ -1,0 +1,17 @@
+.env
+*.env
+!.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+apps/api/.venv/
+apps/web/node_modules/
+apps/web/.astro/
+apps/web/dist/
+logs/
+*.log
+.DS_Store
+.idea/
+# Lista local e privada de destinatários usados em testes de envio
+apps/api/.emails_para_teste
+!apps/api/.emails_para_teste.example

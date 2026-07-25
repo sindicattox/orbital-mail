@@ -1,0 +1,61 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
+const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8102/api/mail';
+---
+<AppLayout title="Nova campanha">
+  <section class="page-head campaign-page-head">
+    <div><h1>Nova campanha</h1><p>Cadastre os dados e o conteúdo da campanha.</p></div>
+  </section>
+  <div id="message" class="message" hidden></div>
+  <form id="campaignForm" class="card campaign-form campaign-form-two-columns">
+    <section class="campaign-column campaign-data-column" aria-labelledby="campaign-data-title">
+      <div class="form-section-head">
+        <h2 id="campaign-data-title">Dados da campanha</h2>
+        <p>Identificação, remetente e situação.</p>
+      </div>
+
+      <label>Nome interno <span>*</span><input name="internal_name" maxlength="255" required /></label>
+      <label>Assunto <span>*</span><input name="subject" maxlength="500" required /></label>
+      <label>Nome do remetente <span>*</span><input name="sender_name" maxlength="255" required /></label>
+      <label>E-mail do remetente <span>*</span><input name="sender_email" type="email" maxlength="255" required /></label>
+      <label>Responder para<input name="reply_to" type="email" maxlength="255" /></label>
+      <label>Status<select name="status"><option value="draft">Rascunho</option><option value="ready">Pronta</option></select></label>
+    </section>
+
+    <section class="campaign-column campaign-content-column" aria-labelledby="campaign-content-title">
+      <div class="form-section-head">
+        <h2 id="campaign-content-title">Conteúdo</h2>
+        <p>HTML principal e versão alternativa em texto.</p>
+      </div>
+
+      <div class="html-field"><OrbitalHtmlEditor name="body_html" id="bodyHtmlEditor" uploadUrl={`${apiUrl}/images`} minHeight="390px" /></div>
+      <label class="text-field">Texto simples<textarea name="body_text" rows="5"></textarea></label>
+    </section>
+
+    <div class="form-actions form-actions-full">
+      <a class="button secondary" href="/campanhas">Cancelar</a>
+      <button class="button" type="submit">Salvar campanha</button>
+    </div>
+  </form>
+</AppLayout>
+<script define:vars={{ apiUrl }}>
+  const form = document.querySelector('#campaignForm');
+  const message = document.querySelector('#message');
+  function showMessage(text, type='error'){message.hidden=false;message.className=`message ${type}`;message.textContent=text;}
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const submit = form.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    const data = Object.fromEntries(new FormData(form));
+    data.reply_to = data.reply_to || null;
+    data.body_html = data.body_html || null;
+    data.body_text = data.body_text || null;
+    try {
+      const response = await fetch(`${apiUrl}/campaigns`, {method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.detail?.[0]?.msg || result.detail || 'Não foi possível salvar a campanha.');
+      window.location.href = '/campanhas?saved=1';
+    } catch(error){showMessage(error.message);submit.disabled=false;}
+  });
+</script>

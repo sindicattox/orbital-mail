@@ -1,0 +1,194 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
+const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8102/api/mail';
+---
+<AppLayout title="Teste de envio">
+  <section class="page-head campaign-page-head">
+    <div>
+      <h1>Teste de envio</h1>
+      <p>Envie uma mensagem isolada pelo SMTP2GO ou por um servidor SMTP tradicional.</p>
+    </div>
+    <a class="button secondary" href="/">Voltar</a>
+  </section>
+
+  <div class="notice" style="margin-bottom:1rem">
+    Esta página não usa a fila e não altera campanhas. O envio só é liberado quando <strong>MAIL_SEND_ENABLED=true</strong> na API.
+  </div>
+
+  <div id="message" class="message" hidden></div>
+
+  <section id="diagnosticPanel" class="card test-diagnostic" hidden aria-live="polite">
+    <div class="test-diagnostic-head">
+      <div>
+        <h2>Diagnóstico do provedor</h2>
+        <p>Retorno técnico da tentativa. Aceito pelo provedor não significa entregue na caixa postal.</p>
+      </div>
+      <button id="copyDiagnostic" class="button secondary compact" type="button">Copiar diagnóstico</button>
+    </div>
+    <dl id="diagnosticSummary" class="test-diagnostic-summary"></dl>
+    <pre id="diagnosticJson" class="test-diagnostic-json"></pre>
+  </section>
+
+  <form id="testSendForm" class="card campaign-form campaign-form-two-columns">
+    <section class="campaign-column campaign-data-column" aria-labelledby="test-data-title">
+      <div class="form-section-head">
+        <h2 id="test-data-title">Entrega</h2>
+        <p>Provedor, remetente e destinatário deste teste.</p>
+      </div>
+
+      <label>Provedor <span>*</span>
+        <select name="provider" required>
+          <option value="smtp2go">SMTP2GO</option>
+          <option value="smtp">SMTP tradicional</option>
+        </select>
+      </label>
+      <label>E-mail do destinatário <span>*</span><input name="to_email" type="email" maxlength="255" required /></label>
+      <label>Nome do destinatário<input name="to_name" maxlength="255" /></label>
+      <label>Assunto <span>*</span><input name="subject" maxlength="500" required /></label>
+      <label>Nome do remetente<input name="from_name" maxlength="255" placeholder="Usa MAIL_FROM_NAME se vazio" /></label>
+      <label>E-mail do remetente<input name="from_email" type="email" maxlength="255" placeholder="Usa MAIL_FROM_ADDRESS se vazio" /></label>
+      <label>Responder para<input name="reply_to" type="email" maxlength="255" placeholder="Usa MAIL_REPLY_TO se vazio" /></label>
+    </section>
+
+    <section class="campaign-column campaign-content-column" aria-labelledby="test-content-title">
+      <div class="form-section-head">
+        <h2 id="test-content-title">Conteúdo do teste</h2>
+        <p>Usa o mesmo editor HTML isolado das campanhas.</p>
+      </div>
+
+      <div class="html-field">
+        <OrbitalHtmlEditor
+          name="body_html"
+          id="testBodyHtmlEditor"
+          label="HTML do e-mail"
+          uploadUrl={`${apiUrl}/images`}
+          minHeight="390px"
+        />
+      </div>
+      <label class="text-field">Texto simples<textarea name="body_text" rows="5" placeholder="Opcional; se vazio, a API gera a partir do HTML."></textarea></label>
+    </section>
+
+    <div class="form-actions form-actions-full">
+      <a class="button secondary" href="/">Cancelar</a>
+      <button class="button" type="submit">Enviar teste</button>
+    </div>
+  </form>
+</AppLayout>
+
+<script define:vars={{ apiUrl }}>
+  const form = document.querySelector('#testSendForm');
+  const message = document.querySelector('#message');
+  const diagnosticPanel = document.querySelector('#diagnosticPanel');
+  const diagnosticSummary = document.querySelector('#diagnosticSummary');
+  const diagnosticJson = document.querySelector('#diagnosticJson');
+  const copyDiagnostic = document.querySelector('#copyDiagnostic');
+
+  function renderDiagnostic(result, httpStatus) {
+    const diagnostic = result?.diagnostic || {};
+    const rows = [
+      ['Provedor', result?.provider || '—'],
+      ['Aceito pelo provedor', result?.accepted ? 'Sim' : 'Não'],
+      ['HTTP da API local', String(httpStatus || '—')],
+      ['ID da requisição', result?.provider_message_id || diagnostic.request_id || 'Não informado'],
+      ['Tempo', diagnostic.elapsed_ms != null ? `${diagnostic.elapsed_ms} ms` : 'Não informado'],
+    ];
+
+    diagnosticSummary.replaceChildren(...rows.map(([label, value]) => {
+      const item = document.createElement('div');
+      const term = document.createElement('dt');
+      const description = document.createElement('dd');
+      term.textContent = label;
+      description.textContent = String(value);
+      item.append(term, description);
+      return item;
+    }));
+    diagnosticJson.textContent = JSON.stringify({
+      message: result?.message || null,
+      provider: result?.provider || null,
+      accepted: Boolean(result?.accepted),
+      provider_message_id: result?.provider_message_id || null,
+      diagnostic,
+    }, null, 2);
+    diagnosticPanel.hidden = false;
+  }
+
+  function showMessage(text, type = 'error') {
+    message.hidden = false;
+    message.className = `message ${type}`;
+    message.textContent = text;
+    message.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = form.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    submit.textContent = 'Enviando...';
+    message.hidden = true;
+    diagnosticPanel.hidden = true;
+    diagnosticSummary.innerHTML = '';
+    diagnosticJson.textContent = '';
+
+    const data = Object.fromEntries(new FormData(form));
+    for (const key of ['to_name', 'body_text', 'from_name', 'from_email', 'reply_to']) {
+      data[key] = String(data[key] || '').trim() || null;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/test-send`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = Array.isArray(result.detail) ? result.detail[0]?.msg : result.detail;
+        const structured = detail && typeof detail === 'object' ? detail : null;
+        const errorMessage = structured?.message || detail || 'Não foi possível enviar o e-mail de teste.';
+        renderDiagnostic(structured || {
+          provider: data.provider,
+          accepted: false,
+          message: errorMessage,
+          diagnostic: { api_error: result },
+        }, response.status);
+        throw new Error(String(errorMessage));
+      }
+      renderDiagnostic(result, response.status);
+      showMessage(result.message || 'Solicitação aceita pelo provedor.', result.accepted ? 'success' : 'error');
+    } catch (error) {
+      showMessage(error instanceof Error ? error.message : 'Falha inesperada no envio.');
+    } finally {
+      submit.disabled = false;
+      submit.textContent = 'Enviar teste';
+    }
+  });
+
+  copyDiagnostic.addEventListener('click', async () => {
+    const text = diagnosticJson.textContent || '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyDiagnostic.textContent = 'Copiado';
+      setTimeout(() => { copyDiagnostic.textContent = 'Copiar diagnóstico'; }, 1200);
+    } catch {
+      showMessage('Não foi possível copiar o diagnóstico.');
+    }
+  });
+</script>
+
+<style>
+  .test-diagnostic { margin-bottom: 1rem; padding: 1rem; }
+  .test-diagnostic-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:.9rem; }
+  .test-diagnostic-head h2 { margin:0 0 .2rem; font-size:1rem; }
+  .test-diagnostic-head p { margin:0; color:var(--muted); font-size:.82rem; }
+  .test-diagnostic-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.65rem; margin:0 0 .85rem; }
+  .test-diagnostic-summary div { border:1px solid var(--border); border-radius:.5rem; padding:.65rem; background:var(--surface-muted, #f8fafc); min-width:0; }
+  .test-diagnostic-summary dt { color:var(--muted); font-size:.72rem; margin-bottom:.25rem; }
+  .test-diagnostic-summary dd { margin:0; font-weight:700; overflow-wrap:anywhere; }
+  .test-diagnostic-json { max-height:340px; overflow:auto; margin:0; padding:.85rem; border-radius:.5rem; background:#111827; color:#e5e7eb; font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .button.compact { min-height:32px; padding:.35rem .65rem; white-space:nowrap; }
+  @media (max-width:900px) { .test-diagnostic-summary { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:560px) { .test-diagnostic-head { flex-direction:column; } .test-diagnostic-summary { grid-template-columns:1fr; } }
+</style>

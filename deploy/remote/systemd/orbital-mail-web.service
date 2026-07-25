@@ -1,0 +1,17 @@
+[Unit]
+Description=orbital-mail Web Astro
+After=network.target orbital-mail-api.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/apps/orbital-mail/apps/web
+EnvironmentFile=/home/ubuntu/apps/orbital-mail/apps/web/.env
+Environment=HOST=127.0.0.1
+Environment=PORT=4102
+ExecStart=/usr/bin/node /home/ubuntu/apps/orbital-mail/apps/web/dist/server/entry.mjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

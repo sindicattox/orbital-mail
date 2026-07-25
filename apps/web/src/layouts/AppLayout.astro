@@ -1,0 +1,33 @@
+---
+import '../styles/global.css';
+import '../styles/ui.css';
+
+interface Props { title: string; description?: string; }
+const { title, description = '' } = Astro.props;
+const path = Astro.url.pathname;
+---
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <meta name="description" content={description} />
+  <title>{title} · Orbital Mail</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="brand" href={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}>Orbital</a>
+      <strong>Mail</strong>
+      <nav>
+        <a class:list={[{active:path==='/'}, 'nav-link']} href="/">Visão geral</a>
+        <a class:list={[{active:path.startsWith('/campanhas')}, 'nav-link']} href="/campanhas">Campanhas</a>
+        <a class:list={[{active:path.startsWith('/listas')}, 'nav-link']} href="/listas">Listas</a>
+        <a class:list={[{active:path.startsWith('/modelos')}, 'nav-link']} href="/modelos">Modelos</a>
+        <a class:list={[{active:path.startsWith('/teste-envio')}, 'nav-link']} href="/teste-envio">Teste de envio</a>
+      </nav>
+    </header>
+    <main class="app-main"><slot /></main>
+  </div>
+</body>
+</html>

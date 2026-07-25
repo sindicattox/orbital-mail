@@ -1,0 +1,147 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
+const apiUrl = import.meta.env.LOCAL_API_URL || 'http://127.0.0.1:8102/api/mail';
+---
+<AppLayout title="Teste de loop" description="Teste controlado da fila e dos workers">
+  <section class="page-head campaign-page-head">
+    <div><h1>Teste controlado de loop</h1><p>Cria uma campanha de teste, adiciona mensagens na EMAIL_QUEUE e processa com workers concorrentes.</p></div>
+    <a class="button secondary" href="/">Voltar</a>
+  </section>
+
+  <div class="notice" style="margin-bottom:1rem">
+    Cada linha representa um e-mail único. Com 30 e-mails e 3 repetições, serão <strong>90 envios</strong>. Use apenas endereços seus de teste.
+  </div>
+  <div id="message" class="message" hidden></div>
+
+  <form id="loopForm" class="card campaign-form campaign-form-two-columns">
+    <section class="campaign-column campaign-data-column">
+      <div class="form-section-head"><h2>Controle</h2><p>Lista, repetições e quantidade de workers.</p></div>
+      <label>Provedor <span>*</span><select name="provider" required><option value="smtp2go">SMTP2GO</option><option value="smtp">SMTP tradicional</option></select></label>
+      <div class="test-emails-field">
+        <div class="test-emails-head"><strong>E-mails autorizados</strong><span id="allowedCount">Carregando...</span></div>
+        <textarea id="allowedEmails" rows="8" readonly aria-label="E-mails autorizados para teste"></textarea>
+        <small>Edite somente <code>apps/api/.emails_para_teste</code>, com um e-mail por linha.</small>
+      </div>
+      <div class="form-grid-two">
+        <label>Envios por e-mail <span>*</span><input name="repetitions" type="number" min="1" max="5" value="3" required /></label>
+        <label>Workers <span>*</span><input name="workers" type="number" min="1" max="5" value="2" required /></label>
+      </div>
+      <label>Assunto <span>*</span><input name="subject" maxlength="500" value="Teste controlado Orbital Mail" required /></label>
+      <label>Nome do remetente<input name="from_name" maxlength="255" placeholder="Usa MAIL_FROM_NAME se vazio" /></label>
+      <label>E-mail do remetente<input name="from_email" type="email" maxlength="255" placeholder="Usa MAIL_FROM_ADDRESS se vazio" /></label>
+      <label>Responder para<input name="reply_to" type="email" maxlength="255" placeholder="Usa MAIL_REPLY_TO se vazio" /></label>
+      <div class="calculation" id="calculation">0 e-mails × 3 = 0 envios</div>
+    </section>
+
+    <section class="campaign-column campaign-content-column">
+      <div class="form-section-head"><h2>Conteúdo</h2><p>Mesmo editor HTML DRY usado nas campanhas.</p></div>
+      <OrbitalHtmlEditor name="body_html" id="loopBodyEditor" label="HTML do teste" uploadUrl={`${apiUrl}/images`} minHeight="390px" />
+      <label>Texto simples<textarea name="body_text" rows="5" placeholder="Opcional"></textarea></label>
+    </section>
+
+    <div class="form-actions form-actions-full">
+      <button id="stopButton" class="button danger" type="button" hidden>Parar teste</button>
+      <button id="startButton" class="button" type="submit">Iniciar teste</button>
+    </div>
+  </form>
+
+  <section id="progressPanel" class="card progress-panel" hidden aria-live="polite">
+    <div class="progress-head"><div><h2>Progresso</h2><p id="progressLabel">Aguardando...</p></div><strong id="progressPercent">0%</strong></div>
+    <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+    <div class="queue-summary">
+      <div><span>Total</span><strong id="total">0</strong></div><div><span>Pendentes</span><strong id="pending">0</strong></div>
+      <div><span>Processando</span><strong id="processing">0</strong></div><div><span>Enviados</span><strong id="sent">0</strong></div>
+      <div><span>Erros</span><strong id="errors">0</strong></div>
+    </div>
+    <a id="viewRecipients" class="button secondary" href="#">Ver destinatários e erros</a>
+  </section>
+</AppLayout>
+
+<script define:vars={{ apiUrl }}>
+  const form = document.querySelector('#loopForm');
+  const message = document.querySelector('#message');
+  const startButton = document.querySelector('#startButton');
+  const stopButton = document.querySelector('#stopButton');
+  const progressPanel = document.querySelector('#progressPanel');
+  const calculation = document.querySelector('#calculation');
+  let campaignId = null;
+  let pollTimer = null;
+
+  let allowedEmails = [];
+  function emailsFromText() { return allowedEmails; }
+  function updateCalculation() {
+    const count = emailsFromText().length;
+    const repetitions = Number(new FormData(form).get('repetitions') || 1);
+    calculation.textContent = `${count} e-mail(s) × ${repetitions} = ${count * repetitions} envio(s)`;
+  }
+  form.addEventListener('input', updateCalculation);
+
+  async function loadAllowedEmails() {
+    try {
+      const response = await fetch(`${apiUrl}/test-loop/allowed-emails`, { credentials: 'include' });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Falha ao carregar .emails_para_teste.');
+      allowedEmails = Array.isArray(result.emails) ? result.emails : [];
+      document.querySelector('#allowedEmails').value = allowedEmails.join('\n');
+      document.querySelector('#allowedCount').textContent = `${allowedEmails.length} configurado(s)`;
+      updateCalculation();
+    } catch (error) {
+      document.querySelector('#allowedCount').textContent = 'Não configurado';
+      showMessage(error instanceof Error ? error.message : 'Falha ao carregar destinatários.');
+    }
+  }
+  loadAllowedEmails();
+
+  function showMessage(text, type='error') { message.hidden=false; message.className=`message ${type}`; message.textContent=text; }
+  function renderStatus(data) {
+    progressPanel.hidden=false;
+    for (const key of ['total','pending','processing','sent','errors']) document.querySelector(`#${key}`).textContent=String(data[key] ?? 0);
+    const percent=Number(data.percent || 0);
+    document.querySelector('#progressPercent').textContent=`${percent}%`;
+    document.querySelector('#progressBar').style.width=`${percent}%`;
+    document.querySelector('#progressLabel').textContent=data.done ? 'Teste concluído.' : 'Workers processando a fila...';
+    if (data.done) { clearInterval(pollTimer); pollTimer=null; startButton.disabled=false; stopButton.hidden=true; showMessage(`Concluído: ${data.sent} enviado(s), ${data.errors} erro(s).`, data.errors ? 'error' : 'success'); }
+  }
+  async function poll() {
+    if (!campaignId) return;
+    const response=await fetch(`${apiUrl}/test-loop/${campaignId}/status`, {credentials:'include'});
+    if (response.ok) renderStatus(await response.json());
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault(); message.hidden=true;
+    const data=Object.fromEntries(new FormData(form));
+    data.emails=emailsFromText();
+    data.repetitions=Number(data.repetitions); data.workers=Number(data.workers);
+    for (const key of ['body_text','from_name','from_email','reply_to']) data[key]=String(data[key] || '').trim() || null;
+    if (!data.emails.length) return showMessage('Informe pelo menos um e-mail.');
+    const total=data.emails.length*data.repetitions;
+    if (!confirm(`Confirmar ${total} envio(s) para ${data.emails.length} e-mail(s), usando ${data.workers} worker(s)?`)) return;
+    startButton.disabled=true; startButton.textContent='Iniciando...';
+    try {
+      const response=await fetch(`${apiUrl}/test-loop/start`, {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+      const result=await response.json().catch(()=>({}));
+      if (!response.ok) throw new Error(typeof result.detail==='string' ? result.detail : JSON.stringify(result.detail || result));
+      campaignId=result.campaign_id;
+      document.querySelector('#viewRecipients').href=`/campanhas/${campaignId}/destinatarios`;
+      progressPanel.hidden=false; stopButton.hidden=false; startButton.textContent='Teste em andamento';
+      showMessage(result.message, 'success');
+      await poll(); pollTimer=setInterval(poll, 1500);
+    } catch (error) { startButton.disabled=false; startButton.textContent='Iniciar teste'; showMessage(error instanceof Error ? error.message : 'Falha ao iniciar teste.'); }
+  });
+
+  stopButton.addEventListener('click', async () => {
+    if (!campaignId) return;
+    stopButton.disabled=true;
+    const response=await fetch(`${apiUrl}/test-loop/${campaignId}/stop`, {method:'POST', credentials:'include'});
+    const result=await response.json().catch(()=>({}));
+    showMessage(result.message || 'Parada solicitada.', response.ok ? 'success' : 'error');
+    stopButton.disabled=false;
+  });
+</script>
+
+<style>
+  .test-emails-field{display:grid;gap:.45rem}.test-emails-head{display:flex;justify-content:space-between;align-items:center}.test-emails-head span{font-size:.82rem;color:var(--muted)}.test-emails-field textarea{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.test-emails-field small{color:var(--muted)}
+  .form-grid-two{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}.calculation{padding:.75rem;border:1px solid var(--border);border-radius:.5rem;background:var(--surface-muted,#f8fafc);font-weight:700}.progress-panel{margin-top:1rem;padding:1rem}.progress-head{display:flex;justify-content:space-between;align-items:center}.progress-head h2{margin:0}.progress-head p{margin:.2rem 0 0;color:var(--muted)}.progress-track{height:12px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:1rem 0}.progress-bar{height:100%;width:0;background:var(--primary);transition:width .25s}.button.danger{background:#b91c1c}.queue-summary{margin-bottom:1rem}@media(max-width:600px){.form-grid-two{grid-template-columns:1fr}}
+</style>
