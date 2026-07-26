@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlparse, urlunparse
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -8,6 +9,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 API_DIR = Path(__file__).resolve().parents[1]
 API_ENV_FILE = API_DIR / ".env"
 PRODUCTION_ENVS = {"production", "prod", "remote"}
+PUBLIC_UPLOAD_PATH = "/api/mail/uploads"
 
 
 class Settings(BaseSettings):
@@ -30,8 +32,20 @@ class Settings(BaseSettings):
     )
 
     auth_mode: str = Field("disabled", validation_alias="AUTH_MODE")
+    # SSO já fornecido pelo orbital-app. AUTH_CONTEXT_URL permanece opcional
+    # apenas para compatibilidade com proxies legados que validem Bearer token.
     auth_context_url: str | None = Field(None, validation_alias="AUTH_CONTEXT_URL")
     auth_timeout_seconds: float = Field(5.0, validation_alias="AUTH_TIMEOUT_SECONDS")
+    auth_authorize_url: str | None = Field(None, validation_alias="AUTH_AUTHORIZE_URL")
+    auth_token_url: str | None = Field(None, validation_alias="AUTH_TOKEN_URL")
+    auth_client_id: str | None = Field(None, validation_alias="AUTH_CLIENT_ID")
+    auth_client_secret: str | None = Field(None, validation_alias="AUTH_CLIENT_SECRET")
+    auth_redirect_uri: str | None = Field(None, validation_alias="AUTH_REDIRECT_URI")
+    auth_web_url: str = Field("http://127.0.0.1:4104/", validation_alias="AUTH_WEB_URL")
+    auth_session_secret: str = Field("", validation_alias="AUTH_SESSION_SECRET")
+    auth_cookie_name: str = Field("orbital_mail_session", validation_alias="AUTH_COOKIE_NAME")
+    auth_cookie_secure: bool = Field(False, validation_alias="AUTH_COOKIE_SECURE")
+    auth_session_ttl_seconds: int = Field(28_800, validation_alias="AUTH_SESSION_TTL_SECONDS")
     dev_tenant_code: str | None = Field("anpprev", validation_alias="AUTH_DEV_TENANT_CODE")
     dev_user_id: int = Field(1, validation_alias="AUTH_DEV_USER_ID")
     dev_is_admin: bool = Field(True, validation_alias="AUTH_DEV_IS_ADMIN")
@@ -71,7 +85,7 @@ class Settings(BaseSettings):
     mail_test_max_repetitions: int = Field(5, validation_alias="EMAIL_TEST_MAX_REPETITIONS")
     mail_test_max_messages: int = Field(300, validation_alias="EMAIL_TEST_MAX_MESSAGES")
     mail_upload_dir: str = Field("/home/daniel/Code/data/orbital-mail/uploads", validation_alias="EMAIL_UPLOAD_DIR")
-    mail_public_upload_url: str = Field("http://127.0.0.1:8104/uploads/mail", validation_alias="EMAIL_UPLOAD_PUBLIC_URL")
+    mail_public_upload_url: str = Field("http://127.0.0.1:8104/api/mail/uploads", validation_alias="EMAIL_UPLOAD_PUBLIC_URL")
     mail_upload_max_bytes: int = Field(5_242_880, validation_alias="EMAIL_UPLOAD_MAX_BYTES")
 
     @field_validator("cors_origins", mode="before")
@@ -95,6 +109,26 @@ class Settings(BaseSettings):
         if normalized not in {"disabled", "remote"}:
             raise ValueError("AUTH_MODE deve ser disabled ou remote.")
         return normalized
+
+    @field_validator("mail_public_upload_url")
+    @classmethod
+    def validate_mail_public_upload_url(cls, value: str) -> str:
+        raw = str(value or "").strip().rstrip("/")
+        parsed = urlparse(raw)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError(
+                "EMAIL_UPLOAD_PUBLIC_URL deve ser uma URL absoluta HTTP/HTTPS, "
+                f"terminando em {PUBLIC_UPLOAD_PATH}."
+            )
+        if parsed.params or parsed.query or parsed.fragment:
+            raise ValueError("EMAIL_UPLOAD_PUBLIC_URL não pode conter parâmetros, query string ou fragmento.")
+        if parsed.path.rstrip("/") != PUBLIC_UPLOAD_PATH:
+            actual_path = parsed.path.rstrip("/") or "/"
+            raise ValueError(
+                "EMAIL_UPLOAD_PUBLIC_URL usa caminho incompatível: "
+                f"{actual_path}. Use exatamente {PUBLIC_UPLOAD_PATH}."
+            )
+        return urlunparse((parsed.scheme, parsed.netloc, PUBLIC_UPLOAD_PATH, "", "", ""))
 
     @field_validator("smtp_security")
     @classmethod
@@ -121,8 +155,21 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_runtime_contract(self) -> "Settings":
-        if self.auth_mode == "remote" and not str(self.auth_context_url or "").strip():
-            raise ValueError("AUTH_CONTEXT_URL é obrigatório quando AUTH_MODE=remote.")
+        if self.auth_mode == "remote":
+            required_auth = {
+                "AUTH_AUTHORIZE_URL": self.auth_authorize_url,
+                "AUTH_TOKEN_URL": self.auth_token_url,
+                "AUTH_CLIENT_ID": self.auth_client_id,
+                "AUTH_CLIENT_SECRET": self.auth_client_secret,
+                "AUTH_REDIRECT_URI": self.auth_redirect_uri,
+                "AUTH_WEB_URL": self.auth_web_url,
+                "AUTH_SESSION_SECRET": self.auth_session_secret,
+            }
+            missing_auth = [name for name, value in required_auth.items() if not str(value or "").strip()]
+            if missing_auth:
+                raise ValueError(f"Configuração SSO remota incompleta: {', '.join(missing_auth)}.")
+            if len(self.auth_session_secret.strip()) < 24:
+                raise ValueError("AUTH_SESSION_SECRET deve possuir pelo menos 24 caracteres em AUTH_MODE=remote.")
 
         if self.app_env.strip().lower() in PRODUCTION_ENVS:
             missing = [
@@ -138,8 +185,15 @@ class Settings(BaseSettings):
             ]
             if self.auth_mode != "remote":
                 missing.append("AUTH_MODE=remote")
+            if not self.auth_cookie_secure:
+                missing.append("AUTH_COOKIE_SECURE=true")
             if any("localhost" in origin or "127.0.0.1" in origin for origin in self.cors_origins):
                 missing.append("APP_CORS_ORIGINS sem origens locais")
+            public_upload_url = self.mail_public_upload_url.strip().lower()
+            if not public_upload_url.startswith("https://"):
+                missing.append("EMAIL_UPLOAD_PUBLIC_URL com HTTPS público")
+            if "localhost" in public_upload_url or "127.0.0.1" in public_upload_url:
+                missing.append("EMAIL_UPLOAD_PUBLIC_URL sem endereço local")
             if missing:
                 raise ValueError(f"Configuração de produção incompleta: {', '.join(missing)}.")
         return self

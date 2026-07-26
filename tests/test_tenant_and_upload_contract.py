@@ -15,11 +15,15 @@ def test_tenant_is_not_fixed_in_environment():
 
 def test_upload_is_public_and_separated_by_authenticated_tenant():
     images = (ROOT / 'apps/api/mail/images.py').read_text()
-    main = (ROOT / 'apps/api/main.py').read_text()
+    storage = (ROOT / 'apps/api/mail/image_storage.py').read_text()
+    env_example = (ROOT / 'apps/api/.env.example').read_text()
 
     assert 'auth.tenant_code' in images
     assert 'mail_public_upload_url' in images
-    assert 'app.mount("/uploads/mail"' in main
+    assert '@router.get("/uploads/{tenant_code}/{filename}"' in images
+    assert 'tenant_upload_dir(settings, tenant_code)' in images
+    assert 'configured.replace("{tenant}", tenant)' in storage
+    assert 'EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8104/api/mail/uploads' in env_example
 
 
 def test_editor_upload_credentials_timeout_and_active_buttons():
@@ -42,3 +46,10 @@ def test_disabled_auth_uses_explicit_dev_tenant_from_settings():
     assert 'settings.dev_tenant_code' in auth
     assert 'x-tenant-code' not in auth.lower()
     assert 'AUTH_DEV_TENANT_CODE=anpprev' in env_example
+
+
+def test_production_rejects_non_public_image_url():
+    settings = (ROOT / 'apps/api/core/settings.py').read_text()
+
+    assert 'EMAIL_UPLOAD_PUBLIC_URL com HTTPS público' in settings
+    assert 'EMAIL_UPLOAD_PUBLIC_URL sem endereço local' in settings

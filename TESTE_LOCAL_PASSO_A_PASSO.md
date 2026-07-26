@@ -7,22 +7,36 @@ Execute uma etapa por vez e pare caso apareça erro.
 Confirme que estes arquivos continuam no seu projeto local e não vieram do ZIP:
 
 ```bash
-ls -la ./.env apps/api/.emails_para_teste
+ls -la apps/api/.env apps/web/.env apps/api/.emails_para_teste
 ```
 
-## Etapa 2 — banco
+
+## Etapa 2 — confirmar o fallback standalone
+
+Em `apps/api/.env`:
+
+```env
+AUTH_MODE=disabled
+AUTH_DEV_TENANT_CODE=anpprev
+AUTH_DEV_USER_ID=1
+AUTH_DEV_IS_ADMIN=true
+```
+
+Nesse modo o `orbital-app` não precisa estar iniciado.
+
+## Etapa 3 — banco
 
 A migração `database/oracle/002_email_delivery_events.sql` deve ser executada somente uma vez.
 Se ela já foi executada e as constraints novas estão ENABLED, não execute novamente.
 
-## Etapa 3 — iniciar
+## Etapa 4 — iniciar
 
 ```bash
 cd /home/daniel/Code/orgs/orbital/orbital-mail
 ./deploy/local/start.sh
 ```
 
-## Etapa 4 — saúde da API
+## Etapa 5 — saúde da API
 
 ```bash
 curl -i http://127.0.0.1:8104/api/health
@@ -30,7 +44,25 @@ curl -i http://127.0.0.1:8104/api/health
 
 Esperado: HTTP 200.
 
-## Etapa 5 — teste mínimo
+
+## Etapa 6 — imagem pública local
+
+No `apps/api/.env`, confirme exatamente:
+
+```env
+EMAIL_UPLOAD_DIR=/home/daniel/storage/tenants/{tenant}/media/email_campaign
+EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8104/api/mail/uploads
+```
+
+Não use `/uploads/mail`. Reinicie a API, insira uma imagem nova no editor e confira no DevTools que o `Request URL` começa com:
+
+```text
+http://127.0.0.1:8104/api/mail/uploads/
+```
+
+A rota não depende de CORS e deve responder HTTP 200.
+
+## Etapa 7 — teste mínimo
 
 Na página `/teste-loop`, use:
 
@@ -41,7 +73,7 @@ Na página `/teste-loop`, use:
 
 A campanha deve terminar como `completed` ou mostrar erro classificado.
 
-## Etapa 6 — teste controlado
+## Etapa 8 — teste controlado
 
 Depois do teste mínimo:
 
@@ -49,7 +81,7 @@ Depois do teste mínimo:
 - 1 repetição
 - 1 worker
 
-## Etapa 7 — concorrência
+## Etapa 9 — concorrência
 
 Somente depois das etapas anteriores:
 
@@ -57,7 +89,7 @@ Somente depois das etapas anteriores:
 - 1 repetição
 - 2 workers
 
-## Etapa 8 — conferir banco
+## Etapa 10 — conferir banco
 
 ```sql
 SELECT status, provider_status, last_error_class, retryable, blocked,

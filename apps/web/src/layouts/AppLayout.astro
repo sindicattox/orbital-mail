@@ -1,6 +1,8 @@
 ---
 import '../styles/global.css';
 import '../styles/ui.css';
+import { apiUrl } from '../config/api-url';
+import orbitalMailAuthScript from '../assets/auth/orbital-mail-auth.js?raw';
 
 interface Props { title: string; description?: string; }
 const { title, description = '' } = Astro.props;
@@ -14,7 +16,7 @@ const path = Astro.url.pathname;
   <meta name="description" content={description} />
   <title>{title} · Orbital Mail</title>
 </head>
-<body>
+<body data-api-url={apiUrl}>
   <div class="app-shell">
     <header class="app-header">
       <a class="brand" href={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}>Orbital</a>
@@ -29,5 +31,6 @@ const path = Astro.url.pathname;
     </header>
     <main class="app-main"><slot /></main>
   </div>
+  <script is:inline set:html={orbitalMailAuthScript}></script>
 </body>
 </html>
