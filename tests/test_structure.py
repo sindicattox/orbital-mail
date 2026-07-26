@@ -15,6 +15,8 @@ def test_required_structure():
         "apps/web/src/pages/campanhas/index.astro",
         "apps/web/src/pages/campanhas/nova.astro",
         "apps/web/src/pages/dev/components.astro",
+        "apps/web/src/components/ApiSandbox.astro",
+        "apps/web/src/config/api-url.ts",
         "deploy/local/setup.sh",
         "deploy/local/start.sh",
         "deploy/remote/push.sh",
@@ -42,7 +44,20 @@ def test_cors_and_sandbox_contract():
     assert '"' not in cors_line
     assert "," in cors_line
 
-    sandbox = (ROOT / "apps/web/src/pages/dev/components.astro").read_text()
-    assert "Testar API" in sandbox
+    page = (ROOT / "apps/web/src/pages/dev/components.astro").read_text()
+    sandbox = (ROOT / "apps/web/src/components/ApiSandbox.astro").read_text()
+    assert "ApiSandbox" in page
+    assert "Testar API e banco" in sandbox
     assert "APP_CORS_ORIGINS" in sandbox
     assert "/api/health" in sandbox
+    assert "/api/health/db" in sandbox
+
+
+def test_health_contract_is_standardized():
+    main = (ROOT / "apps/api/main.py").read_text()
+    health = (ROOT / "apps/api/routes/health.py").read_text()
+    assert 'include_router(health_router, prefix="/api")' in main
+    assert '@router.get("/health")' in health
+    assert '@router.get("/health/db")' in health
+    assert '"service": settings.app_service' in health
+    assert 'status_code=200 if result["ok"] else 503' in health

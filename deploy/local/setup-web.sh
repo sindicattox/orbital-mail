@@ -6,5 +6,5 @@ WEB_DIR="$ROOT_DIR/apps/web"
 echo "[orbital-mail] preparando Web em $WEB_DIR"
 cd "$WEB_DIR"
 rm -rf .astro dist
-npm install
+npm ci
 echo "Web preparada com sucesso."

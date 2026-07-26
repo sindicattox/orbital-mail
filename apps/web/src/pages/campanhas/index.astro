@@ -1,8 +1,6 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
-const apiUrl = import.meta.env.PROD
-  ? (import.meta.env.PUBLIC_REMOTE_API_URL || '/api/mail')
-  : (import.meta.env.PUBLIC_LOCAL_API_URL || 'http://127.0.0.1:8104/api/mail');
+import { apiUrl } from '../../config/api-url';
 ---
 <AppLayout title="Campanhas">
   <section class="page-head">

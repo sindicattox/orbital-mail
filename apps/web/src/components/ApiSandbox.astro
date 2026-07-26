@@ -1,0 +1,143 @@
+---
+interface Props {
+  apiBase: string;
+  moduleName: string;
+  modulePath: string;
+  actionLabel: string;
+}
+
+const { apiBase, moduleName, modulePath, actionLabel } = Astro.props;
+---
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Sandbox | {moduleName}</title>
+    <style>
+      :root { font-family: Inter, system-ui, sans-serif; color:#172033; background:#f3f5f8; }
+      * { box-sizing:border-box; }
+      body { margin:0; padding:32px; }
+      main { max-width:1180px; margin:0 auto; }
+      .panel { background:#fff; border:1px solid #dfe4ec; border-radius:14px; padding:22px; box-shadow:0 8px 30px rgba(15,23,42,.06); }
+      .head { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+      h1 { margin:0 0 8px; font-size:26px; }
+      p { color:#596579; }
+      .meta { display:grid; gap:8px; margin:18px 0; padding:14px; border-radius:10px; background:#f7f8fa; font-size:13px; }
+      .meta div { display:grid; grid-template-columns:130px minmax(0,1fr); gap:10px; }
+      code { overflow-wrap:anywhere; }
+      .actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+      button { border:0; border-radius:9px; padding:10px 16px; font:inherit; cursor:pointer; }
+      button:disabled { opacity:.6; cursor:wait; }
+      .primary { background:#315efb; color:#fff; }
+      .secondary { background:#eef1f6; color:#172033; }
+      .status { display:inline-flex; align-items:center; min-height:34px; padding:7px 11px; border-radius:999px; background:#eef1f6; color:#475467; font-size:13px; font-weight:650; }
+      .status.ok { background:#e8f7ee; color:#067647; }
+      .status.error { background:#fff0ee; color:#b42318; }
+      .diagnostic { margin-top:16px; min-height:22px; color:#596579; font-size:13px; white-space:pre-wrap; }
+      dialog { width:min(1480px,calc(100vw - 24px)); height:min(900px,calc(100vh - 24px)); border:0; border-radius:14px; padding:0; box-shadow:0 24px 80px rgba(0,0,0,.25); }
+      dialog::backdrop { background:rgba(15,23,42,.58); }
+      .dialog-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid #dfe4ec; background:#fff; }
+      .dialog-body { height:calc(100% - 61px); padding:18px; background:#f7f8fa; }
+      iframe { width:100%; height:100%; border:0; border-radius:10px; background:#fff; }
+      @media (max-width:720px) { body{padding:16px}.head{display:block}.meta div{grid-template-columns:1fr}.status{margin-top:10px} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <div class="head">
+          <div>
+            <h1>Sandbox do {moduleName}</h1>
+            <p>Executa liveness, readiness do banco e abre a rota real do módulo.</p>
+          </div>
+          <span class="status" data-status>API não testada</span>
+        </div>
+        <div class="meta">
+          <div><strong>Origem Web</strong><code data-web-origin></code></div>
+          <div><strong>API do módulo</strong><code data-api-base></code></div>
+          <div><strong>Liveness</strong><code data-health-url></code></div>
+          <div><strong>Readiness DB</strong><code data-db-health-url></code></div>
+          <div><strong>CORS esperado</strong><code>APP_CORS_ORIGINS em CSV simples deve conter a Origem Web</code></div>
+        </div>
+        <div class="actions">
+          <button class="secondary" type="button" data-test-api>Testar API e banco</button>
+          <button class="primary" type="button" data-open-module>{actionLabel}</button>
+        </div>
+        <div class="diagnostic" data-diagnostic></div>
+      </section>
+    </main>
+
+    <dialog data-dialog>
+      <div class="dialog-head"><strong>{moduleName}</strong><button class="secondary" type="button" data-close>Fechar</button></div>
+      <div class="dialog-body"><iframe data-frame title={moduleName}></iframe></div>
+    </dialog>
+
+    <script define:vars={{ apiBase, moduleName, modulePath }}>
+      const status = document.querySelector('[data-status]');
+      const diagnostic = document.querySelector('[data-diagnostic]');
+      const testButton = document.querySelector('[data-test-api]');
+      const openButton = document.querySelector('[data-open-module]');
+      const dialog = document.querySelector('[data-dialog]');
+      const frame = document.querySelector('[data-frame]');
+      const resolvedApi = new URL(apiBase, window.location.origin);
+      const healthUrl = new URL('/api/health', resolvedApi.origin).toString();
+      const dbHealthUrl = new URL('/api/health/db', resolvedApi.origin).toString();
+
+      document.querySelector('[data-web-origin]').textContent = window.location.origin;
+      document.querySelector('[data-api-base]').textContent = resolvedApi.toString();
+      document.querySelector('[data-health-url]').textContent = healthUrl;
+      document.querySelector('[data-db-health-url]').textContent = dbHealthUrl;
+
+      function setStatus(kind, label, details = '') {
+        status.className = `status ${kind || ''}`.trim();
+        status.textContent = label;
+        diagnostic.textContent = details;
+      }
+
+      async function requestJson(url) {
+        const response = await fetch(url, { credentials: 'include', cache: 'no-store' });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          const detail = payload?.database?.error_type || payload?.detail || `HTTP ${response.status}`;
+          throw new Error(`${detail} em ${url}`);
+        }
+        return payload;
+      }
+
+      async function checkApi() {
+        testButton.disabled = true;
+        openButton.disabled = true;
+        setStatus('', 'Testando...', `GET ${healthUrl}\nGET ${dbHealthUrl}`);
+        try {
+          const live = await requestJson(healthUrl);
+          const ready = await requestJson(dbHealthUrl);
+          const latency = ready?.database?.latency_ms;
+          setStatus('ok', 'API e banco disponíveis', `${live?.service || moduleName} · ${live?.environment || 'ambiente não informado'} · banco ${latency ?? '?'} ms`);
+          return true;
+        } catch (error) {
+          const networkFailure = error instanceof TypeError;
+          const details = networkFailure
+            ? `Falha de rede ou CORS. Confirme as portas, a API ativa e APP_CORS_ORIGINS contendo exatamente ${window.location.origin} em CSV simples.`
+            : String(error?.message || error);
+          setStatus('error', 'Diagnóstico falhou', details);
+          console.error('[orbital-sandbox] Falha no diagnóstico', { apiBase, healthUrl, dbHealthUrl, webOrigin: window.location.origin, error });
+          return false;
+        } finally {
+          testButton.disabled = false;
+          openButton.disabled = false;
+        }
+      }
+
+      testButton.addEventListener('click', checkApi);
+      openButton.addEventListener('click', async () => {
+        if (!await checkApi()) return;
+        frame.src = modulePath;
+        dialog.showModal();
+      });
+      document.querySelector('[data-close]').addEventListener('click', () => dialog.close());
+      dialog.addEventListener('close', () => { frame.src = 'about:blank'; });
+      checkApi();
+    </script>
+  </body>
+</html>

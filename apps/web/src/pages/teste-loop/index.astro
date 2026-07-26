@@ -1,9 +1,7 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
-const apiUrl = import.meta.env.PROD
-  ? (import.meta.env.PUBLIC_REMOTE_API_URL || '/api/mail')
-  : (import.meta.env.PUBLIC_LOCAL_API_URL || 'http://127.0.0.1:8104/api/mail');
+import { apiUrl } from '../../config/api-url';
 ---
 <AppLayout title="Teste de loop" description="Teste controlado da fila e dos workers">
   <section class="page-head campaign-page-head">

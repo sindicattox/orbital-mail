@@ -1,13 +1,13 @@
-import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 API_DIR = Path(__file__).resolve().parents[1]
 API_ENV_FILE = API_DIR / ".env"
+PRODUCTION_ENVS = {"production", "prod", "remote"}
 
 
 class Settings(BaseSettings):
@@ -20,16 +20,12 @@ class Settings(BaseSettings):
     )
 
     app_name: str = Field("Orbital Mail API", validation_alias="APP_NAME")
+    app_service: str = Field("orbital-mail-api", validation_alias="APP_SERVICE")
     app_env: str = Field("development", validation_alias="APP_ENV")
     app_host: str = Field("0.0.0.0", validation_alias="APP_HOST")
     app_port: int = Field(8104, validation_alias="APP_PORT")
     cors_origins: Annotated[list[str], NoDecode] = Field(
-        [
-        "http://localhost:4104",
-        "http://127.0.0.1:4104",
-        "http://localhost:4001",
-        "http://127.0.0.1:4001",
-        ],
+        ['http://localhost:4104', 'http://127.0.0.1:4104', 'http://localhost:4001', 'http://127.0.0.1:4001'],
         validation_alias="APP_CORS_ORIGINS",
     )
 
@@ -52,6 +48,7 @@ class Settings(BaseSettings):
     oracle_pool_timeout_seconds: int = Field(10, validation_alias="ORACLE_POOL_TIMEOUT_SECONDS")
     oracle_pool_recycle_seconds: int = Field(300, validation_alias="ORACLE_POOL_RECYCLE_SECONDS")
     oracle_pool_pre_ping: bool = Field(True, validation_alias="ORACLE_POOL_PRE_PING")
+    oracle_pool_use_lifo: bool = Field(True, validation_alias="ORACLE_POOL_USE_LIFO")
     oracle_sql_echo: bool = Field(False, validation_alias="DB_SQL_ECHO")
 
     mail_provider: str = Field("disabled", validation_alias="EMAIL_PROVIDER")
@@ -84,23 +81,11 @@ class Settings(BaseSettings):
             raw = value.strip()
             if not raw:
                 return []
-            if raw.startswith("["):
-                try:
-                    value = json.loads(raw)
-                except json.JSONDecodeError as exc:
-                    raise ValueError(
-                        "APP_CORS_ORIGINS deve usar CSV simples, sem colchetes e sem aspas."
-                    ) from exc
-            else:
-                value = raw.split(",")
-
+            if raw.startswith("[") or '"' in raw or "'" in raw:
+                raise ValueError("APP_CORS_ORIGINS deve usar CSV simples, sem colchetes e sem aspas.")
+            value = raw.split(",")
         if isinstance(value, (list, tuple, set)):
-            origins = []
-            for item in value:
-                origin = str(item).strip().strip('"').strip("'").rstrip("/")
-                if origin and origin not in origins:
-                    origins.append(origin)
-            return origins
+            return list(dict.fromkeys(str(item).strip().rstrip("/") for item in value if str(item).strip()))
         return value
 
     @field_validator("auth_mode")
@@ -108,7 +93,7 @@ class Settings(BaseSettings):
     def validate_auth_mode(cls, value: str) -> str:
         normalized = value.strip().lower()
         if normalized not in {"disabled", "remote"}:
-            raise ValueError("AUTH_MODE deve ser 'disabled' ou 'remote'.")
+            raise ValueError("AUTH_MODE deve ser disabled ou remote.")
         return normalized
 
     @field_validator("smtp_security")
@@ -119,9 +104,49 @@ class Settings(BaseSettings):
             raise ValueError("SMTP_SECURITY deve ser none, tls ou ssl.")
         return normalized
 
+    @model_validator(mode="after")
+    def validate_mail_provider(self) -> "Settings":
+        provider = self.mail_provider.strip().lower()
+        if provider not in {"disabled", "smtp", "smtp2go"}:
+            raise ValueError("EMAIL_PROVIDER deve ser disabled, smtp ou smtp2go.")
+        self.mail_provider = provider
+        if self.mail_send_enabled:
+            if provider == "disabled":
+                raise ValueError("EMAIL_PROVIDER não pode ser disabled quando EMAIL_SEND_ENABLED=true.")
+            if provider == "smtp2go" and not str(self.smtp2go_api_key or "").strip():
+                raise ValueError("SMTP2GO_API_KEY é obrigatória para EMAIL_PROVIDER=smtp2go.")
+            if provider == "smtp" and not str(self.smtp_host or "").strip():
+                raise ValueError("SMTP_HOST é obrigatório para EMAIL_PROVIDER=smtp.")
+        return self
+
+    @model_validator(mode="after")
+    def validate_runtime_contract(self) -> "Settings":
+        if self.auth_mode == "remote" and not str(self.auth_context_url or "").strip():
+            raise ValueError("AUTH_CONTEXT_URL é obrigatório quando AUTH_MODE=remote.")
+
+        if self.app_env.strip().lower() in PRODUCTION_ENVS:
+            missing = [
+                name
+                for name, value in {
+                    "ORACLE_USER": self.oracle_user,
+                    "ORACLE_PASSWORD": self.oracle_password,
+                    "ORACLE_CONNECT_STRING": self.oracle_connect_string,
+                    "ORACLE_WALLET_REMOTE_DIR": self.oracle_wallet_remote_dir,
+                    "ORACLE_CURRENT_SCHEMA": self.oracle_current_schema,
+                }.items()
+                if not str(value or "").strip()
+            ]
+            if self.auth_mode != "remote":
+                missing.append("AUTH_MODE=remote")
+            if any("localhost" in origin or "127.0.0.1" in origin for origin in self.cors_origins):
+                missing.append("APP_CORS_ORIGINS sem origens locais")
+            if missing:
+                raise ValueError(f"Configuração de produção incompleta: {', '.join(missing)}.")
+        return self
+
     @property
     def oracle_wallet_dir(self) -> str | None:
-        if self.app_env.strip().lower() in {"production", "prod", "remote"}:
+        if self.app_env.strip().lower() in PRODUCTION_ENVS:
             return self.oracle_wallet_remote_dir or self.oracle_wallet_local_dir
         return self.oracle_wallet_local_dir or self.oracle_wallet_remote_dir
 

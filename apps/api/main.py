@@ -11,7 +11,7 @@ from mail.test_loop_service import router as mail_test_loop_router
 from routes.health import router as health_router
 
 settings = get_settings()
-app = FastAPI(title="Orbital Mail API", version="0.1.0")
+app = FastAPI(title=settings.app_name, version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
