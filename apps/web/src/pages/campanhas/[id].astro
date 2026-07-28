@@ -2,6 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
 import { apiUrl } from '../../config/api-url';
+export const prerender = false;
 const { id } = Astro.params;
 ---
 <AppLayout title="Editar campanha">
@@ -43,28 +44,28 @@ const { id } = Astro.params;
 <script define:vars={{ apiUrl, id }}>
   const form = document.querySelector('#campaignForm');
   const message = document.querySelector('#message');
+  const apiErrors = window.OrbitalApiErrors;
   function showMessage(text,type='error'){message.hidden=false;message.className=`message ${type}`;message.textContent=text;}
   async function load(){
     try{
       const response=await fetch(`${apiUrl}/campaigns/${id}`, {credentials:'include'});
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(data.detail || 'Campanha não encontrada.');
+      if(!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar a campanha.'));
+      const data=await response.json();
       for(const [key,value] of Object.entries(data)){if(form.elements[key]) form.elements[key].value=value ?? '';}
       const editor=document.querySelector('#bodyHtmlEditor');if(editor) editor.value=data.body_html ?? '';
-      if(new URLSearchParams(location.search).has('saved')) showMessage('Campanha salva no banco.','success');
-    }catch(error){showMessage(error.message);form.querySelectorAll('input,textarea,select,button').forEach(el=>el.disabled=true);document.querySelector('#bodyHtmlEditor')?.querySelectorAll('button').forEach(el=>el.disabled=true);}
+      if(new URLSearchParams(location.search).has('saved')) showMessage('Campanha salva com sucesso.','success');
+    }catch(error){showMessage(apiErrors.fromException(error, 'Não foi possível carregar a campanha.'));form.querySelectorAll('input,textarea,select,button').forEach(el=>el.disabled=true);document.querySelector('#bodyHtmlEditor')?.querySelectorAll('button').forEach(el=>el.disabled=true);}
   }
   form.addEventListener('submit',async event=>{
     event.preventDefault();
-    const submit=form.querySelector('button[type="submit"]');submit.disabled=true;
+    const submit=form.querySelector('button[type="submit"]');submit.disabled=true;message.hidden=true;
     const data=Object.fromEntries(new FormData(form));
     data.reply_to=data.reply_to||null;data.body_html=data.body_html||null;data.body_text=data.body_text||null;
     try{
       const response=await fetch(`${apiUrl}/campaigns/${id}`,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-      const result=await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(result.detail?.[0]?.msg || result.detail || 'Não foi possível salvar.');
+      if(!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível salvar as alterações.'));
       window.location.href='/campanhas?saved=updated';
-    }catch(error){showMessage(error.message);}finally{submit.disabled=false;}
+    }catch(error){showMessage(apiErrors.fromException(error, 'Não foi possível salvar as alterações.'));}finally{submit.disabled=false;}
   });
   load();
 </script>

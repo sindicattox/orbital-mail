@@ -42,20 +42,21 @@ import { apiUrl } from '../../config/api-url';
 <script define:vars={{ apiUrl }}>
   const form = document.querySelector('#campaignForm');
   const message = document.querySelector('#message');
+  const apiErrors = window.OrbitalApiErrors;
   function showMessage(text, type='error'){message.hidden=false;message.className=`message ${type}`;message.textContent=text;}
   form.addEventListener('submit', async event => {
     event.preventDefault();
     const submit = form.querySelector('button[type="submit"]');
     submit.disabled = true;
+    message.hidden = true;
     const data = Object.fromEntries(new FormData(form));
     data.reply_to = data.reply_to || null;
     data.body_html = data.body_html || null;
     data.body_text = data.body_text || null;
     try {
       const response = await fetch(`${apiUrl}/campaigns`, {method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.detail?.[0]?.msg || result.detail || 'Não foi possível salvar a campanha.');
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível salvar a campanha.'));
       window.location.href = '/campanhas?saved=1';
-    } catch(error){showMessage(error.message);submit.disabled=false;}
+    } catch(error){showMessage(apiErrors.fromException(error, 'Não foi possível salvar a campanha.'));submit.disabled=false;}
   });
 </script>

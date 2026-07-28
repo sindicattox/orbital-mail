@@ -75,7 +75,7 @@ def test_campaign_and_queue_are_atomic_and_errors_are_controlled():
     assert 'except IntegrityError as exc:' in service
     assert service.count('db.rollback()') >= 4
     assert 'Não foi possível gerar uma identificação única' in service
-    assert 'Falha ao criar a campanha e a fila de teste no Oracle.' in service
+    assert 'Não foi possível criar a campanha e a fila de teste no Oracle.' in service
     # O gerenciador só é registrado depois que campanha e fila foram confirmadas.
     assert service.index('campaign_id = _create_test_campaign_and_queue') < service.index('_stop_events[campaign_id] = stop_event')
 

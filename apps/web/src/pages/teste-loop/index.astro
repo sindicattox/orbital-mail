@@ -67,6 +67,7 @@ import { apiUrl } from '../../config/api-url';
   const calculation = document.querySelector('#calculation');
   let campaignId = null;
   let pollTimer = null;
+  const apiErrors = window.OrbitalApiErrors;
 
   let allowedEmails = [];
   function emailsFromText() { return allowedEmails; }
@@ -80,15 +81,15 @@ import { apiUrl } from '../../config/api-url';
   async function loadAllowedEmails() {
     try {
       const response = await fetch(`${apiUrl}/test-loop/allowed-emails`, { credentials: 'include' });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Falha ao carregar .emails_para_teste.');
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar os e-mails autorizados para teste.'));
+      const result = await response.json();
       allowedEmails = Array.isArray(result.emails) ? result.emails : [];
       document.querySelector('#allowedEmails').value = allowedEmails.join('\n');
       document.querySelector('#allowedCount').textContent = `${allowedEmails.length} configurado(s)`;
       updateCalculation();
     } catch (error) {
       document.querySelector('#allowedCount').textContent = 'Não configurado';
-      showMessage(error instanceof Error ? error.message : 'Falha ao carregar destinatários.');
+      showMessage(apiErrors.fromException(error, 'Não foi possível carregar os e-mails autorizados para teste.'));
     }
   }
   loadAllowedEmails();
@@ -105,8 +106,15 @@ import { apiUrl } from '../../config/api-url';
   }
   async function poll() {
     if (!campaignId) return;
-    const response=await fetch(`${apiUrl}/test-loop/${campaignId}/status`, {credentials:'include'});
-    if (response.ok) renderStatus(await response.json());
+    try {
+      const response=await fetch(`${apiUrl}/test-loop/${campaignId}/status`, {credentials:'include'});
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível atualizar o progresso do teste.'));
+      renderStatus(await response.json());
+    } catch (error) {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer=null; startButton.disabled=false; stopButton.hidden=true;
+      showMessage(apiErrors.fromException(error, 'Não foi possível atualizar o progresso do teste.'));
+    }
   }
 
   form.addEventListener('submit', async (event) => {
@@ -121,23 +129,29 @@ import { apiUrl } from '../../config/api-url';
     startButton.disabled=true; startButton.textContent='Iniciando...';
     try {
       const response=await fetch(`${apiUrl}/test-loop/start`, {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-      const result=await response.json().catch(()=>({}));
-      if (!response.ok) throw new Error(typeof result.detail==='string' ? result.detail : JSON.stringify(result.detail || result));
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível iniciar o teste.'));
+      const result=await response.json();
       campaignId=result.campaign_id;
       document.querySelector('#viewRecipients').href=`/campanhas/${campaignId}/destinatarios`;
       progressPanel.hidden=false; stopButton.hidden=false; startButton.textContent='Teste em andamento';
       showMessage(result.message, 'success');
       await poll(); pollTimer=setInterval(poll, 1500);
-    } catch (error) { startButton.disabled=false; startButton.textContent='Iniciar teste'; showMessage(error instanceof Error ? error.message : 'Falha ao iniciar teste.'); }
+    } catch (error) { startButton.disabled=false; startButton.textContent='Iniciar teste'; showMessage(apiErrors.fromException(error, 'Não foi possível iniciar o teste.')); }
   });
 
   stopButton.addEventListener('click', async () => {
     if (!campaignId) return;
     stopButton.disabled=true;
-    const response=await fetch(`${apiUrl}/test-loop/${campaignId}/stop`, {method:'POST', credentials:'include'});
-    const result=await response.json().catch(()=>({}));
-    showMessage(result.message || 'Parada solicitada.', response.ok ? 'success' : 'error');
-    stopButton.disabled=false;
+    try {
+      const response=await fetch(`${apiUrl}/test-loop/${campaignId}/stop`, {method:'POST', credentials:'include'});
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível solicitar a parada do teste.'));
+      const result=await response.json();
+      showMessage(result.message || 'Parada solicitada com sucesso.', 'success');
+    } catch (error) {
+      showMessage(apiErrors.fromException(error, 'Não foi possível solicitar a parada do teste.'));
+    } finally {
+      stopButton.disabled=false;
+    }
   });
 </script>
 

@@ -48,3 +48,13 @@ Este patch trata respostas imediatas durante o envio. Webhooks posteriores de `d
 - O frontend redireciona para o SSO somente após uma resposta `401` da API do Mail.
 - Mantida compatibilidade opcional com `AUTH_CONTEXT_URL` para Bearer/proxy legado.
 - Uploads e campanhas continuam sempre filtrados por `auth.tenant_code`.
+
+
+## 2026-07-28 — mensagens de erro coerentes
+
+- Respostas de validação agora usam mensagens em português e identificam o campo incorreto.
+- Erros de integridade e indisponibilidade do Oracle retornam JSON controlado, sem expor stack trace.
+- Erros inesperados retornam mensagem segura e preservam os cabeçalhos CORS.
+- O frontend diferencia resposta da API, indisponibilidade do serviço e erro de validação.
+- Removidas mensagens cruas como `Failed to fetch`, objetos JSON e textos técnicos do Pydantic.
+- Incluída a migração idempotente `database/oracle/003_drop_legacy_campaign_stats_unique.sql`.

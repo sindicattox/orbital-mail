@@ -196,11 +196,11 @@ class OrbitalHtmlEditor extends HTMLElement {
         credentials: 'include',
         signal: controller.signal,
       });
-      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(result.detail || `Falha ao enviar imagem (${response.status}).`);
+        throw new Error(await window.OrbitalApiErrors.fromResponse(response, 'Não foi possível enviar a imagem.'));
       }
-      if (!result.url) throw new Error('A API não retornou a URL da imagem.');
+      const result = await response.json();
+      if (!result.url) throw new Error('A API não retornou a URL da imagem enviada.');
 
       this.restoreSelection();
       const image = document.createElement('img');
@@ -211,9 +211,7 @@ class OrbitalHtmlEditor extends HTMLElement {
       this.syncValue();
       this.setStatus('Imagem inserida. Ela foi salva na área pública do tenant.');
     } catch (error) {
-      const message = error?.name === 'AbortError'
-        ? 'O upload excedeu 30 segundos.'
-        : error?.message || 'Falha ao enviar imagem.';
+      const message = window.OrbitalApiErrors.fromException(error, 'Não foi possível enviar a imagem.');
       this.setStatus(message, true);
     } finally {
       window.clearTimeout(timeoutId);

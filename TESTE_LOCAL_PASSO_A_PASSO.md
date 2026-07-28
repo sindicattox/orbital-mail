@@ -29,6 +29,8 @@ Nesse modo o `orbital-app` não precisa estar iniciado.
 A migração `database/oracle/002_email_delivery_events.sql` deve ser executada somente uma vez.
 Se ela já foi executada e as constraints novas estão ENABLED, não execute novamente.
 
+Execute também `database/oracle/003_drop_legacy_campaign_stats_unique.sql`. Essa migração é idempotente e remove apenas a unicidade legada por assunto e data de envio.
+
 ## Etapa 4 — iniciar
 
 ```bash

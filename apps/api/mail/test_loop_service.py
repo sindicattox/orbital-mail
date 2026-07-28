@@ -472,7 +472,7 @@ def start_loop_test(payload: LoopTestStart, db: Session = Depends(get_db), auth:
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail="Falha ao criar a campanha e a fila de teste no Oracle.",
+            detail="Não foi possível criar a campanha e a fila de teste no Oracle.",
         ) from exc
 
     stop_event = threading.Event()

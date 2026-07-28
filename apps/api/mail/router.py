@@ -150,7 +150,7 @@ def update_campaign(
     if current is None:
         raise HTTPException(status_code=404, detail='Campanha não encontrada.')
     if current in {'sending', 'completed'}:
-        raise HTTPException(status_code=409, detail='Campanha em envio ou enviada não pode ser alterada.')
+        raise HTTPException(status_code=409, detail='Não é possível alterar uma campanha em envio ou já enviada.')
 
     values = payload.model_dump(mode='json')
     result = db.execute(text('''
@@ -189,7 +189,7 @@ def delete_campaign(
     if current is None:
         raise HTTPException(status_code=404, detail='Campanha não encontrada.')
     if current not in {'draft', 'ready', 'error', 'paused'}:
-        raise HTTPException(status_code=409, detail='Somente campanhas não enviadas podem ser removidas.')
+        raise HTTPException(status_code=409, detail='Não é possível remover uma campanha em envio ou já enviada.')
 
     db.execute(text('''
         DELETE FROM email_campaign

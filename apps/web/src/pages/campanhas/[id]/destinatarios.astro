@@ -1,6 +1,7 @@
 ---
 import AppLayout from '../../../layouts/AppLayout.astro';
 import { apiUrl } from '../../../config/api-url';
+export const prerender = false;
 const { id } = Astro.params;
 ---
 <AppLayout title="Destinatários da campanha">
@@ -30,6 +31,7 @@ const { id } = Astro.params;
   const rows = document.querySelector('#recipientRows');
   const form = document.querySelector('#filters');
   const message = document.querySelector('#message');
+  const apiErrors = window.OrbitalApiErrors;
   let page = 1;
   let pages = 1;
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -37,8 +39,14 @@ const { id } = Astro.params;
   const statusLabel = value => ({pending:'Pendente',processing:'Processando',sent:'Enviado',error:'Erro',invalid_email:'E-mail inválido'}[value] || value || '—');
   function showError(text=''){ message.hidden=!text; message.className='message error'; message.textContent=text; }
   async function loadCampaign(){
-    const response=await fetch(`${apiUrl}/campaigns/${id}`,{credentials:'include'}); const data=await response.json().catch(()=>({}));
-    if(response.ok) document.querySelector('#campaignName').textContent=`Campanha: ${data.internal_name}`;
+    try {
+      const response=await fetch(`${apiUrl}/campaigns/${id}`,{credentials:'include'});
+      if(!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar a campanha.'));
+      const data=await response.json();
+      document.querySelector('#campaignName').textContent=`Campanha: ${data.internal_name}`;
+    } catch(error) {
+      showError(apiErrors.fromException(error, 'Não foi possível carregar a campanha.'));
+    }
   }
   async function load(){
     showError(); rows.innerHTML='<tr><td colspan="8" class="empty">Carregando destinatários...</td></tr>';
@@ -46,12 +54,13 @@ const { id } = Astro.params;
     const search=document.querySelector('#search').value.trim(); const status=document.querySelector('#status').value;
     if(search) query.set('search',search); if(status) query.set('status_filter',status);
     try{
-      const response=await fetch(`${apiUrl}/campaigns/${id}/recipients?${query}`,{credentials:'include'}); const data=await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(data.detail || 'Não foi possível carregar os destinatários.');
+      const response=await fetch(`${apiUrl}/campaigns/${id}/recipients?${query}`,{credentials:'include'});
+      if(!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar os destinatários.'));
+      const data=await response.json();
       pages=data.pages; document.querySelector('#paginationText').textContent=`Página ${data.page} de ${data.pages} · ${data.total} registros`;
       document.querySelector('#previous').disabled=page<=1; document.querySelector('#next').disabled=page>=pages;
       rows.innerHTML=data.items.length ? data.items.map(item=>`<tr><td>${escapeHtml(item.name||'—')}</td><td>${escapeHtml(item.email)}</td><td>${escapeHtml(item.br_situacao_associativa_name||item.br_situacao_associativa_code||'—')}</td><td>${escapeHtml(item.br_situacao_funcional_name||item.br_situacao_funcional_code||'—')}</td><td><span class="status-badge status-${escapeHtml(item.status)}">${escapeHtml(statusLabel(item.status))}</span></td><td>${Number(item.try_count||0)}</td><td>${formatDate(item.last_try)}</td><td class="error-cell" title="${escapeHtml(item.error||'')}">${escapeHtml(item.error||'—')}</td></tr>`).join('') : '<tr><td colspan="8" class="empty">Nenhum destinatário preparado.</td></tr>';
-    }catch(error){showError(error.message); rows.innerHTML='<tr><td colspan="8" class="empty">Falha ao carregar.</td></tr>';}
+    }catch(error){showError(apiErrors.fromException(error, 'Não foi possível carregar os destinatários.')); rows.innerHTML='<tr><td colspan="8" class="empty">Não foi possível carregar os destinatários.</td></tr>';}
   }
   form.addEventListener('submit',event=>{event.preventDefault();page=1;load();});
   document.querySelector('#previous').addEventListener('click',()=>{if(page>1){page--;load();}});

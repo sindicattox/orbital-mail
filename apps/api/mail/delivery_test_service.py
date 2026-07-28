@@ -56,7 +56,7 @@ def _resolve_sender(payload: TestSendPayload) -> tuple[str, str, str | None]:
     settings = get_settings()
     from_email = str(payload.from_email or settings.mail_from_address or "").strip()
     if not from_email:
-        raise HTTPException(status_code=503, detail="EMAIL_FROM_ADDRESS não configurado.")
+        raise HTTPException(status_code=503, detail="Configuração ausente: EMAIL_FROM_ADDRESS.")
     from_name = (payload.from_name or settings.mail_from_name or "Orbital Mail").strip()
     reply_to = str(payload.reply_to or settings.mail_reply_to or "").strip() or None
     return from_email, from_name, reply_to
@@ -65,7 +65,7 @@ def _resolve_sender(payload: TestSendPayload) -> tuple[str, str, str | None]:
 def _send_smtp2go(payload: TestSendPayload) -> TestSendResponse:
     settings = get_settings()
     if not settings.smtp2go_api_key:
-        raise HTTPException(status_code=503, detail="SMTP2GO_API_KEY não configurada.")
+        raise HTTPException(status_code=503, detail="Configuração ausente: SMTP2GO_API_KEY.")
 
     from_email, from_name, reply_to = _resolve_sender(payload)
     request_payload = {
@@ -166,7 +166,7 @@ def _send_smtp2go(payload: TestSendPayload) -> TestSendResponse:
 def _send_smtp(payload: TestSendPayload) -> TestSendResponse:
     settings = get_settings()
     if not settings.smtp_host:
-        raise HTTPException(status_code=503, detail="SMTP_HOST não configurado.")
+        raise HTTPException(status_code=503, detail="Configuração ausente: SMTP_HOST.")
 
     from_email, from_name, reply_to = _resolve_sender(payload)
     message = EmailMessage()
@@ -207,7 +207,7 @@ def _send_smtp(payload: TestSendPayload) -> TestSendResponse:
                 client.ehlo()
             if settings.smtp_username:
                 if not settings.smtp_password:
-                    raise HTTPException(status_code=503, detail="SMTP_PASSWORD não configurado.")
+                    raise HTTPException(status_code=503, detail="Configuração ausente: SMTP_PASSWORD.")
                 login_code, login_message = client.login(settings.smtp_username, settings.smtp_password)
                 smtp_diagnostic["login_code"] = login_code
                 smtp_diagnostic["login_message"] = login_message.decode("utf-8", errors="replace") if isinstance(login_message, bytes) else str(login_message)
@@ -234,7 +234,7 @@ def _send_smtp(payload: TestSendPayload) -> TestSendResponse:
         raise HTTPException(
             status_code=502,
             detail={
-                "message": "Falha na comunicação com o servidor SMTP.",
+                "message": "Não foi possível comunicar-se com o servidor SMTP.",
                 "provider": "smtp",
                 "accepted": False,
                 "diagnostic": smtp_diagnostic,

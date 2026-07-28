@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from core.errors import register_error_handlers
 from core.settings import get_settings
 from mail.router import router as mail_router
 from mail.images import router as mail_images_router
@@ -10,6 +11,7 @@ from routes.health import router as health_router
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="1.0.0")
+register_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

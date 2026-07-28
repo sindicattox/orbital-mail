@@ -1,8 +1,9 @@
 # Relatório de testes
 
 - `python3 -m compileall -q apps/api`: aprovado.
-- `python3 -m pytest -q`: **1071 testes aprovados**.
-- `node --check` no Web Component público, auxiliares, editor e autenticação: aprovado.
+- `python3 -m pytest -q`: **1076 testes aprovados**.
+- `node --check` no Web Component público, mensagens compartilhadas, scripts Astro, editor e autenticação: aprovado.
+- Tratamento global de erro inesperado com JSON e CORS: validado em runtime.
 - `bash -n` em todos os scripts de deploy local e remoto: aprovado.
 - `package-lock.json` atualizado com `@orbital/ui`: aprovado.
 
@@ -20,7 +21,8 @@
 - rejeição no startup da configuração incorreta `/uploads/mail`;
 - deploy remoto padronizado, sem envio automático dos arquivos `.env`;
 - caminho remoto `/home/ubuntu/apps/orbital/orbital-mail` nos serviços e scripts;
-- arquivo privado `.emails_para_teste` ausente do pacote.
+- arquivo privado `.emails_para_teste` ausente do pacote;
+- mensagens de validação, banco, rede e API normalizadas sem expor objetos ou erros técnicos ao usuário.
 
 ## Validação do build
 

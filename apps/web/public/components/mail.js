@@ -1,7 +1,9 @@
+import '../scripts/api-errors.js';
 import { mailStyles } from './mail/styles.js';
 import { escapeHtml, formatDate, joinUrl } from './mail/shared.js';
 
 const TAG_NAME = 'orbital-mail';
+const apiErrors = window.OrbitalApiErrors;
 
 class OrbitalMail extends HTMLElement {
   static observedAttributes = ['api-base', 'base-url', 'theme'];
@@ -159,7 +161,7 @@ class OrbitalMail extends HTMLElement {
     this.rows.innerHTML = '<tr><td colspan="6" class="empty">Carregando campanhas...</td></tr>';
     try {
       const response = await this.request('/campaigns');
-      if (!response.ok) throw new Error('Não foi possível consultar as campanhas.');
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar as campanhas.'));
       const campaigns = await response.json();
       if (!campaigns.length) {
         this.rows.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma campanha cadastrada.</td></tr>';
@@ -180,8 +182,8 @@ class OrbitalMail extends HTMLElement {
           <td>${formatDate(campaign.updated_at || campaign.created_at)}</td>
         </tr>`).join('');
     } catch (error) {
-      this.rows.innerHTML = '<tr><td colspan="6" class="empty">Falha ao carregar campanhas.</td></tr>';
-      this.showMessage(error instanceof Error ? error.message : 'Falha ao carregar campanhas.');
+      this.rows.innerHTML = '<tr><td colspan="6" class="empty">Não foi possível carregar as campanhas.</td></tr>';
+      this.showMessage(apiErrors.fromException(error, 'Não foi possível carregar as campanhas.'));
     }
   }
 
@@ -202,13 +204,12 @@ class OrbitalMail extends HTMLElement {
     try {
       const response = await this.request(`/campaigns/${button.dataset.deleteId}`, { method: 'DELETE' });
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || 'Não foi possível remover a campanha.');
+        throw new Error(await apiErrors.fromResponse(response, 'Não foi possível remover a campanha.'));
       }
-      this.showMessage('Campanha removida.', 'success');
+      this.showMessage('Campanha removida com sucesso.', 'success');
       await this.loadCampaigns();
     } catch (error) {
-      this.showMessage(error instanceof Error ? error.message : 'Não foi possível remover a campanha.');
+      this.showMessage(apiErrors.fromException(error, 'Não foi possível remover a campanha.'));
       button.disabled = false;
     }
   }
@@ -227,7 +228,7 @@ class OrbitalMail extends HTMLElement {
     try {
       await this.readQueueSummary();
     } catch (error) {
-      this.setQueueError(error instanceof Error ? error.message : 'Não foi possível consultar a fila.');
+      this.setQueueError(apiErrors.fromException(error, 'Não foi possível consultar a fila.'));
     }
   }
 
@@ -246,9 +247,8 @@ class OrbitalMail extends HTMLElement {
 
   async readQueueSummary() {
     const response = await this.request(`/campaigns/${this.selectedCampaignId}/queue`);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.detail || 'Não foi possível consultar a fila.');
-    this.renderQueueSummary(data);
+    if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível consultar a fila.'));
+    this.renderQueueSummary(await response.json());
   }
 
   async prepareQueue() {
@@ -272,8 +272,8 @@ class OrbitalMail extends HTMLElement {
           functional_code: this.queueFunctional.value || null,
         }),
       });
-      const start = await startResponse.json().catch(() => ({}));
-      if (!startResponse.ok) throw new Error(start.detail || 'Não foi possível iniciar a preparação.');
+      if (!startResponse.ok) throw new Error(await apiErrors.fromResponse(startResponse, 'Não foi possível iniciar a preparação da fila.'));
+      const start = await startResponse.json();
 
       const total = start.target_total;
       if (total === 0) {
@@ -298,8 +298,8 @@ class OrbitalMail extends HTMLElement {
             batch_size: 250,
           }),
         });
-        const batch = await batchResponse.json().catch(() => ({}));
-        if (!batchResponse.ok) throw new Error(batch.detail || 'Falha ao inserir destinatários.');
+        if (!batchResponse.ok) throw new Error(await apiErrors.fromResponse(batchResponse, 'Não foi possível adicionar os destinatários à fila.'));
+        const batch = await batchResponse.json();
 
         const current = Math.min(batch.total, total);
         const percent = total ? Math.min(100, Math.round((current / total) * 100)) : 100;
@@ -312,9 +312,9 @@ class OrbitalMail extends HTMLElement {
       }
 
       await this.readQueueSummary();
-      this.showMessage('Fila de destinatários preparada.', 'success');
+      this.showMessage('Fila de destinatários preparada com sucesso.', 'success');
     } catch (error) {
-      this.setQueueError(error instanceof Error ? error.message : 'Falha ao preparar a fila.');
+      this.setQueueError(apiErrors.fromException(error, 'Não foi possível preparar a fila.'));
       this.prepareQueueButton.disabled = false;
       this.queueAssociative.disabled = false;
       this.queueFunctional.disabled = false;
@@ -328,15 +328,15 @@ class OrbitalMail extends HTMLElement {
     this.setQueueError();
     try {
       const response = await this.request(`/campaigns/${this.selectedCampaignId}/queue`, { method: 'DELETE' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || 'Não foi possível limpar a fila.');
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível limpar a fila.'));
       this.queueProgressBox.hidden = true;
       await this.readQueueSummary();
       this.prepareQueueButton.disabled = false;
       this.queueAssociative.disabled = false;
       this.queueFunctional.disabled = false;
+      this.showMessage('Fila limpa com sucesso.', 'success');
     } catch (error) {
-      this.setQueueError(error instanceof Error ? error.message : 'Não foi possível limpar a fila.');
+      this.setQueueError(apiErrors.fromException(error, 'Não foi possível limpar a fila.'));
     } finally {
       this.clearQueueButton.disabled = false;
     }
@@ -348,12 +348,12 @@ class OrbitalMail extends HTMLElement {
     this.queueFunctional.innerHTML = '<option value="">Todas</option>';
     try {
       const response = await this.request('/recipient-filters');
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || 'Não foi possível carregar os filtros.');
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar os filtros de destinatários.'));
+      const data = await response.json();
       for (const item of data.associative || []) this.queueAssociative.add(new Option(item.name, item.code));
       for (const item of data.functional || []) this.queueFunctional.add(new Option(item.name, item.code));
     } catch (error) {
-      this.showMessage(error instanceof Error ? error.message : 'Não foi possível carregar os filtros.');
+      this.showMessage(apiErrors.fromException(error, 'Não foi possível carregar os filtros de destinatários.'));
     }
   }
 }
