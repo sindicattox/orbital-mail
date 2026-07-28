@@ -1,15 +1,20 @@
 [Unit]
-Description=orbital-mail Web Astro
-After=network.target orbital-mail-api.service
+Description=orbital-mail Astro Web
+After=network-online.target orbital-mail-api.service
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/apps/orbital/orbital-mail/apps/web
-EnvironmentFile=/home/ubuntu/apps/orbital/orbital-mail/apps/web/.env
-ExecStart=/usr/bin/env HOST=${APP_HOST} PORT=${APP_PORT} /usr/bin/node /home/ubuntu/apps/orbital/orbital-mail/apps/web/dist/server/entry.mjs
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/apps/orgs/orbital/orbital-mail/apps/web
+EnvironmentFile=/home/ubuntu/apps/orgs/orbital/orbital-mail/apps/web/.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=4106
+ExecStart=/usr/bin/node /home/ubuntu/apps/orgs/orbital/orbital-mail/apps/web/dist/server/entry.mjs
 Restart=always
-RestartSec=3
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target

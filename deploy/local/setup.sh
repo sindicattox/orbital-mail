@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# cd /home/daniel/Code/orgs/orbital/orbital-mail
 set -euo pipefail
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-"$ROOT_DIR/deploy/local/setup-api.sh"
-"$ROOT_DIR/deploy/local/setup-web.sh"
-echo "Ambiente local pronto. Execute ./deploy/local/start.sh."
+D="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PIDS=()
+cleanup() {
+  ((${#PIDS[@]})) && kill "${PIDS[@]}" 2>/dev/null || true
+  wait 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+echo "Preparando e iniciando API e Web locais."
+"$D/setup-api.sh" & PIDS+=("$!")
+"$D/setup-web.sh" & PIDS+=("$!")
+wait -n "${PIDS[@]}"
