@@ -9,7 +9,7 @@ command -v rsync >/dev/null || { echo "rsync não encontrado." >&2; exit 1; }
 echo "Sincronizando código com $DEPLOY_REMOTE_HOST:$DEPLOY_REMOTE_ROOT."
 ssh "${SSH[@]}" "$DEPLOY_REMOTE_HOST" "mkdir -p '$DEPLOY_REMOTE_ROOT'"
 rsync -az --delete --itemize-changes -e "ssh ${SSH[*]}" \
-  --exclude='.git/' --exclude='.idea/' --exclude='.pytest_cache/' --exclude='*[REMOVER]*' \
+  --exclude='.git/' --exclude='.idea/' --exclude='.pytest_cache/' --exclude='**/.pytest_cache/' --exclude='*[REMOVER]*' \
   --exclude='apps/api/.env' --exclude='apps/api/.venv/' --exclude='apps/api/.emails_para_teste' \
   --exclude='apps/web/.env' --exclude='apps/web/node_modules/' --exclude='apps/web/.astro/' --exclude='apps/web/dist/' \
   --exclude='__pycache__/' --exclude='*.pyc' "$R/" "$DEPLOY_REMOTE_HOST:$DEPLOY_REMOTE_ROOT/"

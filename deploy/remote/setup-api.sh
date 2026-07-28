@@ -27,7 +27,7 @@ chmod 600 "$TEMP_ENV"
 scp "${SSH[@]}" "$TEMP_ENV" "$DEPLOY_REMOTE_HOST:$REMOTE_ENV"
 echo "Configuração remota da API enviada."
 
-echo "Preparando API remota."
+echo "Instalando e preparando serviço da API."
 ssh "${SSH[@]}" "$DEPLOY_REMOTE_HOST" 'bash -s' -- \
   "$DEPLOY_REMOTE_ROOT" "$DEPLOY_API_SERVICE" "$DEPLOY_API_PORT" <<'REMOTE'
 set -euo pipefail
@@ -35,8 +35,16 @@ ROOT="$1"
 SERVICE="$2"
 PORT="$3"
 API="$ROOT/apps/api"
+UNIT="$ROOT/deploy/remote/systemd/$SERVICE"
+[[ -f "$UNIT" ]] || { echo "Unit da API não encontrada: $UNIT" >&2; exit 1; }
 sudo systemctl stop "$SERVICE" 2>/dev/null || true
-sudo fuser -k "$PORT/tcp" >/dev/null 2>&1 || true
+if sudo fuser "$PORT/tcp" >/dev/null 2>&1; then
+  echo "Liberando processo órfão da porta $PORT."
+  sudo fuser -k "$PORT/tcp" >/dev/null
+fi
+sudo install -m 644 "$UNIT" "/etc/systemd/system/$SERVICE"
+sudo systemctl daemon-reload
+sudo systemctl enable "$SERVICE" >/dev/null
 cd "$API"
 rm -rf .venv
 python3 -m venv .venv
@@ -46,6 +54,9 @@ python3 -m venv .venv
 from core.settings import get_settings
 settings = get_settings()
 print(f'Configuração validada: {settings.app_service} / {settings.app_env}')
+print(f'SSO autorizador: {settings.auth_authorize_url}')
+print(f'SSO callback: {settings.auth_redirect_uri}')
 PY
+echo "Serviço da API instalado e preparado."
 REMOTE
 "$D/start-api.sh"

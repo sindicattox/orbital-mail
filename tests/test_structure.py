@@ -69,3 +69,13 @@ def test_health_contract_is_standardized():
     assert '@router.get("/health/db")' in health
     assert '"service": settings.app_service' in health
     assert 'status_code=200 if result["ok"] else 503' in health
+
+
+def test_remote_setup_installs_services_idempotently():
+    root = Path(__file__).resolve().parents[1]
+    for name in ("setup-api.sh", "setup-web.sh"):
+        content = (root / "deploy" / "remote" / name).read_text()
+        assert "sudo install -m 644" in content
+        assert "sudo systemctl daemon-reload" in content
+        assert 'sudo systemctl enable "$SERVICE"' in content
+    assert not (root / "deploy" / "remote" / "install-services.sh").exists()
