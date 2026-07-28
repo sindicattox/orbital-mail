@@ -89,6 +89,13 @@ class OrbitalMail extends HTMLElement {
             <label>Situação funcional
               <select data-queue-functional><option value="">Todas</option></select>
             </label>
+            <label>Perfil
+              <select data-queue-profile><option value="">Todos</option></select>
+            </label>
+            <label>E-mail de teste
+              <input data-queue-test-email type="email" placeholder="Opcional: todos os envios irão para este e-mail">
+              <small>Quando informado, substitui o e-mail real sem alterar a quantidade de destinatários.</small>
+            </label>
           </div>
           <div data-queue-progress-box class="queue-progress-box" hidden>
             <div class="queue-progress-row"><strong data-queue-progress-text>0 de 0</strong><span data-queue-progress-percent>0%</span></div>
@@ -118,6 +125,8 @@ class OrbitalMail extends HTMLElement {
     this.queueDialog = this.shadowRoot.querySelector('[data-queue-dialog]');
     this.queueAssociative = this.shadowRoot.querySelector('[data-queue-associative]');
     this.queueFunctional = this.shadowRoot.querySelector('[data-queue-functional]');
+    this.queueProfile = this.shadowRoot.querySelector('[data-queue-profile]');
+    this.queueTestEmail = this.shadowRoot.querySelector('[data-queue-test-email]');
     this.prepareQueueButton = this.shadowRoot.querySelector('[data-prepare-queue]');
     this.clearQueueButton = this.shadowRoot.querySelector('[data-clear-queue]');
     this.queueProgressBox = this.shadowRoot.querySelector('[data-queue-progress-box]');
@@ -222,6 +231,8 @@ class OrbitalMail extends HTMLElement {
     this.queueSummary.hidden = true;
     this.queueAssociative.disabled = false;
     this.queueFunctional.disabled = false;
+    this.queueProfile.disabled = false;
+    this.queueTestEmail.disabled = false;
     this.prepareQueueButton.disabled = false;
     this.clearQueueButton.hidden = true;
     this.queueDialog.showModal();
@@ -243,6 +254,8 @@ class OrbitalMail extends HTMLElement {
     this.prepareQueueButton.disabled = summary.total > 0;
     this.queueAssociative.disabled = summary.total > 0;
     this.queueFunctional.disabled = summary.total > 0;
+    this.queueProfile.disabled = summary.total > 0;
+    this.queueTestEmail.disabled = summary.total > 0;
   }
 
   async readQueueSummary() {
@@ -256,6 +269,8 @@ class OrbitalMail extends HTMLElement {
     this.prepareQueueButton.disabled = true;
     this.queueAssociative.disabled = true;
     this.queueFunctional.disabled = true;
+    this.queueProfile.disabled = true;
+    this.queueTestEmail.disabled = true;
     this.queueProgressBox.hidden = false;
     this.queueSummary.hidden = true;
     this.queueProgress.value = 0;
@@ -270,6 +285,8 @@ class OrbitalMail extends HTMLElement {
         body: JSON.stringify({
           associative_code: this.queueAssociative.value || null,
           functional_code: this.queueFunctional.value || null,
+          profile_code: this.queueProfile.value || null,
+          test_email: this.queueTestEmail.value.trim() || null,
         }),
       });
       if (!startResponse.ok) throw new Error(await apiErrors.fromResponse(startResponse, 'Não foi possível iniciar a preparação da fila.'));
@@ -293,6 +310,8 @@ class OrbitalMail extends HTMLElement {
           body: JSON.stringify({
             associative_code: start.associative_code,
             functional_code: start.functional_code,
+            profile_code: start.profile_code,
+            test_email: start.test_email,
             cutoff: start.cutoff,
             target_total: total,
             batch_size: 250,
@@ -318,6 +337,8 @@ class OrbitalMail extends HTMLElement {
       this.prepareQueueButton.disabled = false;
       this.queueAssociative.disabled = false;
       this.queueFunctional.disabled = false;
+      this.queueProfile.disabled = false;
+      this.queueTestEmail.disabled = false;
       try { await this.readQueueSummary(); } catch {}
     }
   }
@@ -334,6 +355,8 @@ class OrbitalMail extends HTMLElement {
       this.prepareQueueButton.disabled = false;
       this.queueAssociative.disabled = false;
       this.queueFunctional.disabled = false;
+      this.queueProfile.disabled = false;
+      this.queueTestEmail.disabled = false;
       this.showMessage('Fila limpa com sucesso.', 'success');
     } catch (error) {
       this.setQueueError(apiErrors.fromException(error, 'Não foi possível limpar a fila.'));
@@ -343,15 +366,17 @@ class OrbitalMail extends HTMLElement {
   }
 
   async loadRecipientFilters() {
-    if (!this.queueAssociative || !this.queueFunctional) return;
+    if (!this.queueAssociative || !this.queueFunctional || !this.queueProfile) return;
     this.queueAssociative.innerHTML = '<option value="">Todas</option>';
     this.queueFunctional.innerHTML = '<option value="">Todas</option>';
+    this.queueProfile.innerHTML = '<option value="">Todos</option>';
     try {
       const response = await this.request('/recipient-filters');
       if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar os filtros de destinatários.'));
       const data = await response.json();
       for (const item of data.associative || []) this.queueAssociative.add(new Option(item.name, item.code));
       for (const item of data.functional || []) this.queueFunctional.add(new Option(item.name, item.code));
+      for (const item of data.profiles || []) this.queueProfile.add(new Option(item.name, item.code));
     } catch (error) {
       this.showMessage(apiErrors.fromException(error, 'Não foi possível carregar os filtros de destinatários.'));
     }

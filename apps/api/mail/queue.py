@@ -38,7 +38,11 @@ def queue_summary(db: Session, campaign_id: int, tenant_code: str) -> dict:
     return {key: int(row[key] or 0) for key in ('total', 'pending', 'processing', 'sent', 'errors')}
 
 
-def _recipient_filter_sql(associative_code: str | None, functional_code: str | None) -> tuple[str, dict]:
+def _recipient_filter_sql(
+    associative_code: str | None,
+    functional_code: str | None,
+    profile_code: str | None = None,
+) -> tuple[str, dict]:
     clauses: list[str] = []
     params: dict[str, str] = {}
     if associative_code:
@@ -47,6 +51,9 @@ def _recipient_filter_sql(associative_code: str | None, functional_code: str | N
     if functional_code:
         clauses.append('LOWER(m.br_situacao_funcional_code) = LOWER(:functional_code)')
         params['functional_code'] = functional_code.strip()
+    if profile_code:
+        clauses.append('LOWER(m.etype_code) = LOWER(:profile_code)')
+        params['profile_code'] = profile_code.strip()
     return (' AND '.join(clauses) if clauses else '1 = 1'), params
 
 
@@ -55,14 +62,18 @@ def count_eligible(
     tenant_code: str,
     associative_code: str | None,
     functional_code: str | None,
+    profile_code: str | None,
+    test_email: str | None,
     cutoff: datetime,
 ) -> int:
-    filter_sql, filter_params = _recipient_filter_sql(associative_code, functional_code)
+    filter_sql, filter_params = _recipient_filter_sql(associative_code, functional_code, profile_code)
+    grouping = 'm.id' if test_email else 'LOWER(TRIM(e.email))'
+    email_eligibility = '1 = 1' if test_email else "e.email IS NOT NULL AND REGEXP_LIKE(TRIM(e.email), '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$') AND b.id IS NULL"
     return int(db.execute(
         text(f'''
             SELECT COUNT(*)
               FROM (
-                    SELECT LOWER(TRIM(e.email)) AS normalized_email
+                    SELECT {grouping} AS recipient_key
                       FROM member m
                       JOIN entity e
                         ON e.id = m.entity_id
@@ -71,13 +82,11 @@ def count_eligible(
                         ON LOWER(TRIM(b.email)) = LOWER(TRIM(e.email))
                        AND (b.tenant_code IS NULL OR LOWER(b.tenant_code) = LOWER(:tenant_code))
                      WHERE LOWER(m.tenant_code) = LOWER(:tenant_code)
-                       AND e.email IS NOT NULL
-                       AND REGEXP_LIKE(TRIM(e.email), '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$')
-                       AND b.id IS NULL
+                       AND {email_eligibility}
                        AND NVL(m.created_at, DATE '1900-01-01') <= :cutoff
                        AND NVL(m.updated_at, NVL(m.created_at, DATE '1900-01-01')) <= :cutoff
                        AND {filter_sql}
-                     GROUP BY LOWER(TRIM(e.email))
+                     GROUP BY {grouping}
               )
         '''),
         {'tenant_code': tenant_code, 'cutoff': cutoff, **filter_params},
@@ -90,10 +99,17 @@ def insert_batch(
     tenant_code: str,
     associative_code: str | None,
     functional_code: str | None,
+    profile_code: str | None,
+    test_email: str | None,
     cutoff: datetime,
     batch_size: int,
 ) -> int:
-    filter_sql, filter_params = _recipient_filter_sql(associative_code, functional_code)
+    filter_sql, filter_params = _recipient_filter_sql(associative_code, functional_code, profile_code)
+    email_expression = ':test_email' if test_email else 'TRIM(e.email)'
+    # Produção mantém a deduplicação original: PARTITION BY LOWER(TRIM(e.email)).
+    partition_expression = 'm.id' if test_email else 'LOWER(TRIM(e.email))'
+    duplicate_condition = 'q.member_id = m.id' if test_email else 'LOWER(TRIM(q.email)) = LOWER(TRIM(e.email))'
+    email_eligibility = '1 = 1' if test_email else "e.email IS NOT NULL AND REGEXP_LIKE(TRIM(e.email), '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$') AND b.id IS NULL"
     result = db.execute(
         text(f'''
             INSERT INTO email_queue (
@@ -129,13 +145,13 @@ def insert_batch(
               FROM (
                     SELECT m.id AS member_id,
                            m.created_at AS member_insert_date,
-                           TRIM(e.email) AS email,
+                           {email_expression} AS email,
                            TRIM(e.name || ' ' || NVL(e.surname, '')) AS name,
                            t.name AS company,
                            e.home_uf,
                            e.work_uf,
                            ROW_NUMBER() OVER (
-                               PARTITION BY LOWER(TRIM(e.email))
+                               PARTITION BY {partition_expression}
                                ORDER BY m.id DESC
                            ) AS email_rank
                       FROM member m
@@ -148,9 +164,7 @@ def insert_batch(
                         ON LOWER(TRIM(b.email)) = LOWER(TRIM(e.email))
                        AND (b.tenant_code IS NULL OR LOWER(b.tenant_code) = LOWER(:tenant_code))
                      WHERE LOWER(m.tenant_code) = LOWER(:tenant_code)
-                       AND e.email IS NOT NULL
-                       AND REGEXP_LIKE(TRIM(e.email), '^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$')
-                       AND b.id IS NULL
+                       AND {email_eligibility}
                        AND NVL(m.created_at, DATE '1900-01-01') <= :cutoff
                        AND NVL(m.updated_at, NVL(m.created_at, DATE '1900-01-01')) <= :cutoff
                        AND {filter_sql}
@@ -159,7 +173,7 @@ def insert_batch(
                              FROM email_queue q
                             WHERE q.email_campaign_id = :campaign_id
                               AND LOWER(q.tenant_code) = LOWER(:tenant_code)
-                              AND LOWER(TRIM(q.email)) = LOWER(TRIM(e.email))
+                              AND {duplicate_condition}
                        )
                      ORDER BY m.id
               ) candidate
@@ -169,6 +183,7 @@ def insert_batch(
         {
             'campaign_id': campaign_id,
             'tenant_code': tenant_code,
+            'test_email': test_email,
             'cutoff': cutoff,
             'batch_size': batch_size,
             **filter_params,

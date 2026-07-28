@@ -59,6 +59,8 @@ class CampaignDetail(CampaignSummary):
 class QueuePrepareStart(BaseModel):
     associative_code: str | None = Field(default=None, max_length=30)
     functional_code: str | None = Field(default=None, max_length=30)
+    profile_code: str | None = Field(default=None, max_length=64)
+    test_email: EmailStr | None = None
 
 
 class QueuePrepareBatch(QueuePrepareStart):

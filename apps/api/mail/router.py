@@ -213,9 +213,17 @@ def recipient_filters(
         SELECT code, name FROM br_situacao_funcional
          WHERE active = 1 ORDER BY name
     ''')).mappings()
+    profiles = db.execute(text('''
+        SELECT code, name
+          FROM etype
+         WHERE tenant_code = :tenant_code
+           AND NVL(active, 0) = 1
+         ORDER BY NVL(is_admin, 0) DESC, name, code
+    '''), {'tenant_code': auth.tenant_code}).mappings()
     return {
         'associative': [dict(row) for row in associative],
         'functional': [dict(row) for row in functional],
+        'profiles': [dict(row) for row in profiles],
     }
 
 
@@ -263,11 +271,16 @@ def start_queue_preparation(
             detail='A campanha já possui fila. Limpe a fila antes de preparar novamente.',
         )
     cutoff = datetime.now()
-    total = count_eligible(db, auth.tenant_code, payload.associative_code, payload.functional_code, cutoff)
+    total = count_eligible(
+        db, auth.tenant_code, payload.associative_code, payload.functional_code,
+        payload.profile_code, payload.test_email, cutoff,
+    )
     return {
         'campaign_id': campaign_id,
         'associative_code': payload.associative_code,
         'functional_code': payload.functional_code,
+        'profile_code': payload.profile_code,
+        'test_email': str(payload.test_email) if payload.test_email else None,
         'cutoff': cutoff,
         'target_total': total,
         'queued_total': 0,
@@ -286,6 +299,7 @@ def prepare_queue_batch(
     before = queue_summary(db, campaign_id, auth.tenant_code)['total']
     insert_batch(
         db, campaign_id, auth.tenant_code, payload.associative_code, payload.functional_code,
+        payload.profile_code, str(payload.test_email) if payload.test_email else None,
         payload.cutoff, payload.batch_size,
     )
     summary = queue_summary(db, campaign_id, auth.tenant_code)

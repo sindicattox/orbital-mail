@@ -35,10 +35,13 @@ export const mailStyles = `
   .queue-head p { margin: 4px 0 0; color: var(--orbital-muted-text, #667085); }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   label { display: grid; gap: .4rem; font-weight: 650; color: var(--orbital-text, #344054); }
-  select { width: 100%; border: 1px solid var(--orbital-border, #cfd8e5); border-radius: .55rem; padding: .75rem; font: inherit; background: var(--orbital-input-bg, #fff); color: var(--orbital-text, #172033); }
+  select, input { width: 100%; border: 1px solid var(--orbital-border, #cfd8e5); border-radius: .55rem; padding: .75rem; font: inherit; background: var(--orbital-input-bg, #fff); color: var(--orbital-text, #172033); }
+  label small { color: var(--orbital-muted-text, #667085); font-size: .78rem; font-weight: 400; }
   .queue-progress-box { padding: 14px; border: 1px solid var(--orbital-border, #dbe3ee); border-radius: 10px; background: var(--orbital-muted-surface, #f9fafb); }
   .queue-progress-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  label small { color: var(--orbital-muted-text, #667085); font-size: .78rem; font-weight: 400; }
   .queue-progress-box progress { width: 100%; height: 12px; }
+  label small { color: var(--orbital-muted-text, #667085); font-size: .78rem; font-weight: 400; }
   .queue-progress-box p { margin: 8px 0 0; color: var(--orbital-muted-text, #667085); font-size: .86rem; }
   .queue-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .queue-summary span { padding: 10px; border: 1px solid var(--orbital-border, #dbe3ee); border-radius: 8px; text-align: center; font-size: .78rem; }
