@@ -18,6 +18,8 @@ def test_new_campaign_returns_to_list_after_save():
 
 
 def test_campaign_list_shows_saved_feedback_and_cleans_url():
-    source = (ROOT / 'apps/web/src/pages/campanhas/index.astro').read_text()
-    assert "Campanha cadastrada com sucesso." in source
-    assert "history.replaceState({}, '', '/campanhas');" in source
+    page = (ROOT / 'apps/web/src/pages/campanhas/index.astro').read_text()
+    component = (ROOT / 'apps/web/public/components/mail.js').read_text()
+    assert '<orbital-mail api-base={apiUrl} standalone>' in page
+    assert "Campanha cadastrada com sucesso." in component
+    assert "history.replaceState({}, '', this.moduleUrl('/campanhas'));" in component

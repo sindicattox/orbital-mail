@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@astrojs/node": "^10.0.0",
-    "astro": "^6.4.8"
+    "astro": "^6.4.8",
+    "@orbital/ui": "file:../../../orbital-ui"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",

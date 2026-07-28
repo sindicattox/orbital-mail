@@ -41,12 +41,12 @@ def test_queue_filters_tenant_blacklist_and_cutoff():
 
 
 def test_list_has_live_progress_and_queue_controls():
-    page = read('apps/web/src/pages/campanhas/index.astro')
-    assert 'preparar destinatários' in page
-    assert 'queueprogress' in page
-    assert '${current} de ${total}' in page
-    assert 'batch_size:250' in page
-    assert 'limpar fila' in page
+    component = read('apps/web/public/components/mail.js')
+    assert 'preparar destinatários' in component
+    assert 'queueprogress' in component
+    assert '${current} de ${total}' in component
+    assert 'batch_size: 250' in component
+    assert 'limpar fila' in component
 
 
 def test_recipients_page_uses_shared_table_and_input_styles():

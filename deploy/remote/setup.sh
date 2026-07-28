@@ -1,25 +1,20 @@
 #!/usr/bin/env bash
-# cd /home/ubuntu/apps/orbital-mail
 set -euo pipefail
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-[[ -f "$ROOT_DIR/apps/api/.env" ]] || { echo "Arquivo da API ausente: $ROOT_DIR/apps/api/.env" >&2; exit 1; }
-[[ -f "$ROOT_DIR/apps/web/.env" ]] || { echo "Arquivo da Web ausente: $ROOT_DIR/apps/web/.env" >&2; exit 1; }
-cd "$ROOT_DIR"
-./deploy/local/setup-api.sh
-
-cd "$ROOT_DIR/apps/api"
-.venv/bin/python - <<'PY'
-from core.settings import get_settings
-
-settings = get_settings()
-if settings.app_env.strip().lower() not in {"production", "prod", "remote"}:
-    raise SystemExit("APP_ENV deve ser production no servidor.")
-print(f"Configuração validada: {settings.app_service} / {settings.app_env}")
-PY
-
-cd "$ROOT_DIR"
-./deploy/local/setup-web.sh
-cd apps/web
-npm run check
-npm run build
-echo "Build remoto preparado."
+D="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+R="$(cd "$D/../.." && pwd)"
+source "$D/target.conf"
+SSH=(-i "$DEPLOY_SSH_KEY" -o BatchMode=yes -o ConnectTimeout=15)
+[[ -f "$DEPLOY_SSH_KEY" ]] || { echo "Chave ausente: $DEPLOY_SSH_KEY" >&2; exit 1; }
+command -v rsync >/dev/null || { echo "rsync não encontrado." >&2; exit 1; }
+echo "Sincronizando código com $DEPLOY_REMOTE_HOST:$DEPLOY_REMOTE_ROOT."
+ssh "${SSH[@]}" "$DEPLOY_REMOTE_HOST" "mkdir -p '$DEPLOY_REMOTE_ROOT'"
+rsync -az --delete --itemize-changes -e "ssh ${SSH[*]}" \
+  --exclude='.git/' --exclude='.idea/' --exclude='*[REMOVER]*' \
+  --exclude='apps/api/.env' --exclude='apps/api/.venv/' --exclude='apps/api/.emails_para_teste' \
+  --exclude='apps/web/.env' --exclude='apps/web/node_modules/' --exclude='apps/web/.astro/' --exclude='apps/web/dist/' \
+  --exclude='__pycache__/' --exclude='*.pyc' "$R/" "$DEPLOY_REMOTE_HOST:$DEPLOY_REMOTE_ROOT/"
+ssh "${SSH[@]}" "$DEPLOY_REMOTE_HOST" "chmod 755 '$DEPLOY_REMOTE_ROOT'"
+echo "Código remoto sincronizado."
+"$D/setup-api.sh"
+"$D/setup-web.sh"
+echo "Deploy remoto concluído."

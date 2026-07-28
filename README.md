@@ -113,6 +113,42 @@ location /api/mail/ {
 }
 ```
 
+## Barra e incorporação no Orbital
+
+As páginas standalone usam diretamente o `OrbitalTopBar` publicado por `@orbital/ui`. O Mail não mantém uma cópia própria da barra.
+
+A entrada pública para incorporação é:
+
+```text
+/orbital-mail/components/mail.js
+<orbital-mail>
+```
+
+Configuração no `orbital-app`, pelo carregador genérico já existente:
+
+```astro
+<ModuleActionButton
+    label="Mail"
+    icon="mail"
+    moduleTitle="Campanhas de e-mail"
+    moduleSrc="/orbital-mail/components/mail.js"
+    moduleElement="orbital-mail"
+    moduleAttributes='{"api-base":"/api/mail","base-url":"/orbital-mail"}'
+/>
+```
+
+O componente não renderiza outra barra dentro do `orbital-app`. Ele reutiliza a mesma gestão de campanhas da página standalone, chama somente a API própria do Mail e mantém o SSO por cookie assinado.
+
+## Deploy remoto
+
+Os arquivos reais `apps/api/.env` e `apps/web/.env` permanecem no servidor e não são enviados pelo deploy. Depois de atualizá-los quando necessário:
+
+```bash
+./deploy/remote/setup.sh
+```
+
+O script sincroniza o código, prepara API e Web e reinicia os dois serviços.
+
 ## Execução local
 
 ```bash
