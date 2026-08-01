@@ -11,6 +11,7 @@ const { title, description = '' } = Astro.props;
 const mailItems = [
   { id: 'overview', label: 'Visão geral', href: '/', exact: true },
   { id: 'campaigns', label: 'Campanhas', href: '/campanhas' },
+  { id: 'dispatch-queue', label: 'Fila de envios', href: '/fila-envios' },
   { id: 'lists', label: 'Listas', href: '/listas', disabled: true },
   { id: 'templates', label: 'Modelos', href: '/modelos' },
   { id: 'test-send', label: 'Teste de envio', href: '/teste-envio' },

@@ -36,3 +36,10 @@ def test_test_email_is_validated():
     except ValidationError:
         return
     raise AssertionError("E-mail de teste inválido foi aceito")
+
+
+def test_queue_only_selects_active_non_removed_members_and_entities():
+    queue = read("apps/api/mail/queue.py")
+    assert queue.count("and nvl(m.active, 0) = 1") == 2
+    assert queue.count("and nvl(e.active, 0) = 1") == 2
+    assert queue.count("and m.removed_at is null") == 2

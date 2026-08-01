@@ -82,6 +82,9 @@ def count_eligible(
                         ON LOWER(TRIM(b.email)) = LOWER(TRIM(e.email))
                        AND (b.tenant_code IS NULL OR LOWER(b.tenant_code) = LOWER(:tenant_code))
                      WHERE LOWER(m.tenant_code) = LOWER(:tenant_code)
+                       AND NVL(m.active, 0) = 1
+                       AND NVL(e.active, 0) = 1
+                       AND m.removed_at IS NULL
                        AND {email_eligibility}
                        AND NVL(m.created_at, DATE '1900-01-01') <= :cutoff
                        AND NVL(m.updated_at, NVL(m.created_at, DATE '1900-01-01')) <= :cutoff
@@ -164,6 +167,9 @@ def insert_batch(
                         ON LOWER(TRIM(b.email)) = LOWER(TRIM(e.email))
                        AND (b.tenant_code IS NULL OR LOWER(b.tenant_code) = LOWER(:tenant_code))
                      WHERE LOWER(m.tenant_code) = LOWER(:tenant_code)
+                       AND NVL(m.active, 0) = 1
+                       AND NVL(e.active, 0) = 1
+                       AND m.removed_at IS NULL
                        AND {email_eligibility}
                        AND NVL(m.created_at, DATE '1900-01-01') <= :cutoff
                        AND NVL(m.updated_at, NVL(m.created_at, DATE '1900-01-01')) <= :cutoff
@@ -291,3 +297,97 @@ def clear_pending_queue(db: Session, campaign_id: int, tenant_code: str) -> int:
     )
     db.commit()
     return max(int(result.rowcount or 0), 0)
+
+
+def dispatch_preview(
+    db: Session,
+    tenant_code: str,
+    page: int,
+    page_size: int,
+    search: str | None = None,
+) -> dict:
+    """Lista somente mensagens que ainda podem ser disparadas pelo worker do tenant autenticado."""
+    filters = [
+        'LOWER(q.tenant_code) = LOWER(:tenant_code)',
+        "LOWER(q.status) IN ('pending', 'processing')",
+        "LOWER(NVL(c.status, 'draft')) IN ('ready', 'sending', 'paused', 'error', 'draft')",
+    ]
+    params: dict[str, object] = {'tenant_code': tenant_code}
+    if search:
+        filters.append("(LOWER(q.email) LIKE :search OR LOWER(q.name) LIKE :search OR LOWER(c.subject) LIKE :search OR LOWER(c.internal_name) LIKE :search)")
+        params['search'] = f"%{search.strip().lower()}%"
+    where_sql = ' AND '.join(filters)
+
+    summary = db.execute(text(f'''
+        SELECT LOWER(q.tenant_code) AS tenant_code,
+               COUNT(*) AS total,
+               SUM(CASE WHEN LOWER(q.status) = 'pending' THEN 1 ELSE 0 END) AS pending,
+               SUM(CASE WHEN LOWER(q.status) = 'processing' THEN 1 ELSE 0 END) AS processing,
+               COUNT(DISTINCT q.email_campaign_id) AS campaigns
+          FROM email_queue q
+          JOIN email_campaign c
+            ON c.id = q.email_campaign_id
+           AND LOWER(c.tenant_code) = LOWER(q.tenant_code)
+         WHERE {where_sql}
+         GROUP BY LOWER(q.tenant_code)
+    '''), params).mappings().one_or_none()
+
+    total = int(summary['total'] or 0) if summary else 0
+    params.update({'offset_rows': (page - 1) * page_size, 'page_size': page_size})
+    rows = db.execute(text(f'''
+        SELECT q.id,
+               LOWER(q.tenant_code) AS tenant_code,
+               q.email_campaign_id AS campaign_id,
+               NVL(NULLIF(TRIM(c.internal_name), ''), NVL(NULLIF(TRIM(c.subject), ''), 'Campanha ' || TO_CHAR(c.id))) AS campaign_name,
+               c.subject,
+               LOWER(NVL(c.status, 'draft')) AS campaign_status,
+               q.name,
+               q.email,
+               LOWER(q.status) AS queue_status,
+               q.priority,
+               q.try_count,
+               q.next_try_at,
+               q.created_at
+          FROM email_queue q
+          JOIN email_campaign c
+            ON c.id = q.email_campaign_id
+           AND LOWER(c.tenant_code) = LOWER(q.tenant_code)
+         WHERE {where_sql}
+         ORDER BY CASE LOWER(q.status) WHEN 'processing' THEN 0 ELSE 1 END,
+                  NVL(q.priority, 10),
+                  q.id
+         OFFSET :offset_rows ROWS FETCH NEXT :page_size ROWS ONLY
+    '''), params).mappings()
+
+    campaign_rows = db.execute(text(f'''
+        SELECT q.email_campaign_id AS campaign_id,
+               NVL(NULLIF(TRIM(c.internal_name), ''), NVL(NULLIF(TRIM(c.subject), ''), 'Campanha ' || TO_CHAR(c.id))) AS campaign_name,
+               c.subject,
+               LOWER(NVL(c.status, 'draft')) AS campaign_status,
+               COUNT(*) AS total,
+               SUM(CASE WHEN LOWER(q.status) = 'pending' THEN 1 ELSE 0 END) AS pending,
+               SUM(CASE WHEN LOWER(q.status) = 'processing' THEN 1 ELSE 0 END) AS processing
+          FROM email_queue q
+          JOIN email_campaign c
+            ON c.id = q.email_campaign_id
+           AND LOWER(c.tenant_code) = LOWER(q.tenant_code)
+         WHERE {where_sql}
+         GROUP BY q.email_campaign_id, c.id, c.internal_name, c.subject, c.status
+         ORDER BY q.email_campaign_id DESC
+    '''), {k: v for k, v in params.items() if k not in {'offset_rows', 'page_size'}}).mappings()
+
+    return {
+        'tenant_code': tenant_code.lower(),
+        'summary': {
+            'total': total,
+            'pending': int(summary['pending'] or 0) if summary else 0,
+            'processing': int(summary['processing'] or 0) if summary else 0,
+            'campaigns': int(summary['campaigns'] or 0) if summary else 0,
+        },
+        'campaigns': [dict(row) for row in campaign_rows],
+        'items': [dict(row) for row in rows],
+        'page': page,
+        'page_size': page_size,
+        'total': total,
+        'pages': max((total + page_size - 1) // page_size, 1),
+    }

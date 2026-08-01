@@ -1,0 +1,146 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { apiUrl } from '../../config/api-url';
+---
+<AppLayout title="Fila de envios" description="Mensagens que podem ser disparadas pelo Orbital Mail">
+  <section class="page-head">
+    <div>
+      <h1>Fila atual de envios</h1>
+      <p>Mostra exatamente as mensagens pendentes ou em processamento do tenant autenticado.</p>
+    </div>
+    <button id="reloadQueue" class="button secondary" type="button">Atualizar</button>
+  </section>
+
+  <div id="queueState" class="dispatch-state" aria-live="polite">
+    <strong>Carregando fila...</strong>
+  </div>
+
+  <section class="grid dispatch-summary" aria-label="Resumo da fila">
+    <article class="card"><span class="muted">Tenant</span><div id="tenantCode" class="metric tenant-metric">—</div></article>
+    <article class="card"><span class="muted">Campanhas na fila</span><div id="campaignCount" class="metric">0</div></article>
+    <article class="card"><span class="muted">Pendentes</span><div id="pendingCount" class="metric">0</div></article>
+    <article class="card"><span class="muted">Em processamento</span><div id="processingCount" class="metric">0</div></article>
+  </section>
+
+  <section class="card dispatch-campaigns">
+    <div class="section-title">
+      <div><h2>Campanhas que possuem mensagens disparáveis</h2><p>Uma campanha aparece aqui enquanto possuir itens pendentes ou em processamento.</p></div>
+    </div>
+    <div id="campaignCards" class="campaign-cards"><p class="empty compact-empty">Carregando...</p></div>
+  </section>
+
+  <section class="card dispatch-list-card">
+    <div class="section-title dispatch-list-head">
+      <div><h2>Destinatários na fila</h2><p id="queueDescription">Apenas itens que o worker pode consumir.</p></div>
+      <label class="dispatch-search">Buscar
+        <input id="queueSearch" type="search" placeholder="Nome, e-mail ou campanha" />
+      </label>
+    </div>
+    <div class="table-wrap dispatch-table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Tenant</th><th>Campanha</th><th>Destinatário</th><th>E-mail</th><th>Situação</th><th>Tentativas</th><th>Criado em</th></tr></thead>
+        <tbody id="queueRows"><tr><td colspan="7" class="empty">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination-bar">
+      <span id="pageInfo">Página 1</span>
+      <div><button id="previousPage" class="button secondary compact" type="button">Anterior</button><button id="nextPage" class="button secondary compact" type="button">Próxima</button></div>
+    </div>
+  </section>
+</AppLayout>
+
+<script define:vars={{ apiUrl }}>
+  const state = { page: 1, pages: 1, search: '', loading: false };
+  const apiErrors = window.OrbitalApiErrors;
+  const byId = (id) => document.getElementById(id);
+
+  function text(value, fallback = '—') { return value == null || value === '' ? fallback : String(value); }
+  function dateTime(value) { return value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—'; }
+  function clear(element) { while (element.firstChild) element.firstChild.remove(); }
+  function td(value, className = '') { const cell = document.createElement('td'); cell.textContent = text(value); if (className) cell.className = className; return cell; }
+  function statusBadge(status) { const badge = document.createElement('span'); badge.className = `status-badge status-${status}`; badge.textContent = status === 'processing' ? 'Em processamento' : 'Pendente'; return badge; }
+
+  function renderState(data) {
+    const panel = byId('queueState');
+    panel.className = `dispatch-state ${data.send_enabled ? 'dispatch-state--danger' : 'dispatch-state--safe'}`;
+    clear(panel);
+    const title = document.createElement('strong');
+    title.textContent = data.send_enabled ? 'ENVIO LIBERADO' : 'ENVIO BLOQUEADO';
+    const detail = document.createElement('span');
+    detail.textContent = data.send_enabled
+      ? ` EMAIL_SEND_ENABLED=true. Os ${data.summary.pending} itens pendentes podem ser consumidos pelo worker usando ${text(data.provider)}.`
+      : ` EMAIL_SEND_ENABLED=false. Nenhum item pendente será enviado enquanto o bloqueio permanecer ativo.`;
+    panel.append(title, detail);
+  }
+
+  function renderCampaigns(campaigns) {
+    const root = byId('campaignCards'); clear(root);
+    if (!campaigns.length) { const empty = document.createElement('p'); empty.className = 'empty compact-empty'; empty.textContent = 'Nenhuma campanha possui mensagens disparáveis neste tenant.'; root.append(empty); return; }
+    for (const campaign of campaigns) {
+      const article = document.createElement('article'); article.className = 'campaign-queue-card';
+      const top = document.createElement('div'); top.className = 'campaign-queue-card__head';
+      const title = document.createElement('strong'); title.textContent = `${campaign.campaign_name} (#${campaign.campaign_id})`;
+      const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = text(campaign.campaign_status);
+      top.append(title, badge);
+      const subject = document.createElement('p'); subject.textContent = text(campaign.subject, 'Sem assunto');
+      const counts = document.createElement('div'); counts.className = 'campaign-queue-counts';
+      counts.innerHTML = `<span><b>${campaign.total}</b> total</span><span><b>${campaign.pending}</b> pendentes</span><span><b>${campaign.processing}</b> processando</span>`;
+      const link = document.createElement('a'); link.className = 'icon-button'; link.href = `/campanhas/${campaign.campaign_id}`; link.textContent = 'Abrir campanha';
+      article.append(top, subject, counts, link); root.append(article);
+    }
+  }
+
+  function renderRows(items) {
+    const body = byId('queueRows'); clear(body);
+    if (!items.length) { const row = document.createElement('tr'); const cell = td('Nenhuma mensagem disparável encontrada.'); cell.colSpan = 7; cell.className = 'empty'; row.append(cell); body.append(row); return; }
+    for (const item of items) {
+      const row = document.createElement('tr');
+      row.append(td(item.tenant_code, 'tenant-cell'), td(`${item.campaign_name} (#${item.campaign_id})`), td(item.name), td(item.email), (() => { const cell = document.createElement('td'); cell.append(statusBadge(item.queue_status)); return cell; })(), td(item.try_count ?? 0), td(dateTime(item.created_at)));
+      body.append(row);
+    }
+  }
+
+  async function loadQueue() {
+    if (state.loading) return;
+    state.loading = true; byId('reloadQueue').disabled = true;
+    try {
+      const params = new URLSearchParams({ page: String(state.page), page_size: '100' });
+      if (state.search) params.set('search', state.search);
+      const response = await fetch(`${apiUrl}/dispatch-preview?${params}`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(apiErrors.fromPayload(data, response.status, 'Não foi possível carregar a fila.'));
+      state.pages = data.pages || 1;
+      renderState(data);
+      byId('tenantCode').textContent = text(data.tenant_code).toUpperCase();
+      byId('campaignCount').textContent = String(data.summary.campaigns || 0);
+      byId('pendingCount').textContent = String(data.summary.pending || 0);
+      byId('processingCount').textContent = String(data.summary.processing || 0);
+      byId('queueDescription').textContent = `${data.total || 0} mensagens encontradas para o tenant ${text(data.tenant_code).toUpperCase()}.`;
+      renderCampaigns(data.campaigns || []); renderRows(data.items || []);
+      byId('pageInfo').textContent = `Página ${data.page || 1} de ${data.pages || 1}`;
+      byId('previousPage').disabled = state.page <= 1;
+      byId('nextPage').disabled = state.page >= state.pages;
+    } catch (error) {
+      const panel = byId('queueState'); panel.className = 'dispatch-state dispatch-state--danger'; panel.textContent = apiErrors.fromException(error, 'Não foi possível carregar a fila.');
+      renderCampaigns([]); renderRows([]);
+    } finally { state.loading = false; byId('reloadQueue').disabled = false; }
+  }
+
+  let timer;
+  byId('queueSearch').addEventListener('input', (event) => { clearTimeout(timer); timer = setTimeout(() => { state.search = event.target.value.trim(); state.page = 1; loadQueue(); }, 300); });
+  byId('reloadQueue').addEventListener('click', loadQueue);
+  byId('previousPage').addEventListener('click', () => { if (state.page > 1) { state.page -= 1; loadQueue(); } });
+  byId('nextPage').addEventListener('click', () => { if (state.page < state.pages) { state.page += 1; loadQueue(); } });
+  loadQueue();
+</script>
+
+<style>
+  .dispatch-state{display:flex;align-items:center;gap:.4rem;margin-bottom:1rem;padding:1rem 1.1rem;border:1px solid;border-radius:.75rem}
+  .dispatch-state--safe{background:#ecfdf3;border-color:#abefc6;color:#067647}.dispatch-state--danger{background:#fef3f2;border-color:#fecdca;color:#b42318}
+  .dispatch-summary{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:1rem}.tenant-metric{font-size:1.25rem;overflow-wrap:anywhere}
+  .dispatch-campaigns,.dispatch-list-card{margin-top:1rem}.section-title{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:.9rem}.section-title h2{margin:0;font-size:1.05rem}.section-title p{margin:.25rem 0 0;color:var(--muted);font-size:.84rem}
+  .campaign-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.75rem}.campaign-queue-card{border:1px solid var(--border);border-radius:.7rem;padding:.85rem;background:#fbfcfe}.campaign-queue-card__head{display:flex;justify-content:space-between;gap:.6rem}.campaign-queue-card p{margin:.45rem 0;color:var(--muted);font-size:.84rem}.campaign-queue-counts{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.45rem}.campaign-queue-counts span{background:#fff;border:1px solid var(--border);border-radius:.45rem;padding:.35rem .5rem;font-size:.75rem}.compact-empty{padding:1rem}
+  .dispatch-list-head{align-items:end}.dispatch-search{min-width:min(340px,100%)}.dispatch-table-wrap{overflow:auto}.tenant-cell{font-weight:800;text-transform:uppercase}.button.compact{padding:.45rem .7rem}
+  @media(max-width:900px){.dispatch-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.dispatch-list-head{flex-direction:column;align-items:stretch}.dispatch-search{min-width:0}}
+  @media(max-width:560px){.dispatch-summary{grid-template-columns:1fr}.dispatch-state{align-items:flex-start;flex-direction:column}}
+</style>

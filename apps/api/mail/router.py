@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from core.auth import AuthContext, get_auth_context
 from core.database import get_db
-from mail.queue import clear_pending_queue, count_eligible, ensure_campaign, insert_batch, list_recipients, queue_summary
+from core.settings import get_settings
+from mail.queue import clear_pending_queue, count_eligible, dispatch_preview, ensure_campaign, insert_batch, list_recipients, queue_summary
 from mail.schemas import (
     CampaignCreate, CampaignDetail, CampaignSummary, CampaignUpdate,
     QueuePrepareBatch, QueuePrepareStart,
@@ -60,6 +61,24 @@ def overview(
         'drafts': int(row['drafts'] or 0),
         'sent': int(row['sent'] or 0),
     }
+
+
+@router.get('/dispatch-preview')
+def get_dispatch_preview(
+    page: int = 1,
+    page_size: int = 100,
+    search: str | None = None,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+):
+    auth.require('mail.view')
+    page = max(page, 1)
+    page_size = min(max(page_size, 10), 500)
+    result = dispatch_preview(db, auth.tenant_code, page, page_size, search)
+    settings = get_settings()
+    result['send_enabled'] = bool(settings.mail_send_enabled)
+    result['provider'] = settings.mail_provider
+    return result
 
 
 @router.get('/campaigns', response_model=list[CampaignSummary])
