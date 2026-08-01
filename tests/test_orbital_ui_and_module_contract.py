@@ -27,7 +27,7 @@ def test_campaign_page_reuses_public_mail_component():
     assert "customElements.define(TAG_NAME, OrbitalMail)" in component
     assert "credentials: 'include'" in component
     assert "orbital-module-error" in component
-    assert "/auth/start" in component
+    assert "orbitalSession" not in component
 
 
 def test_remote_deploy_uses_standard_scripts_and_keeps_env_remote():

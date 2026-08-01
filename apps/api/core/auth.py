@@ -3,8 +3,7 @@ from dataclasses import dataclass
 import httpx
 from fastapi import Header, HTTPException, Request, status
 
-from core.auth_session import AuthSessionError, read_auth_session
-from core.settings import get_settings
+from core.settings import Settings, get_settings
 
 
 @dataclass(frozen=True)
@@ -20,9 +19,14 @@ class AuthContext:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão para executar esta ação.")
 
 
-def _extract_bearer(authorization: str | None) -> str | None:
+def _extract_token(request: Request, authorization: str | None) -> str | None:
     if authorization and authorization.lower().startswith("bearer "):
         return authorization[7:].strip() or None
+
+    for cookie_name in ("orbital_token", "access_token", "session_token"):
+        value = request.cookies.get(cookie_name)
+        if value:
+            return value
     return None
 
 
@@ -30,7 +34,7 @@ def _context_from_payload(payload: dict) -> AuthContext:
     tenant_code = str(payload.get("tenant_code") or "").strip().lower()
     user_id = payload.get("user_id") or payload.get("member_id") or payload.get("sub") or payload.get("id")
     if not tenant_code or user_id is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sua sessão é inválida. Entre novamente.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Contexto autenticado inválido.")
 
     raw_permissions = payload.get("permissions") or []
     if isinstance(raw_permissions, str):
@@ -44,52 +48,13 @@ def _context_from_payload(payload: dict) -> AuthContext:
     )
 
 
-def _context_from_mail_session(request: Request) -> AuthContext | None:
-    settings = get_settings()
-    token = request.cookies.get(settings.auth_cookie_name)
-    if not token:
-        return None
-    try:
-        payload = read_auth_session(token, settings.auth_session_secret)
-    except AuthSessionError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
-    return _context_from_payload(payload)
-
-
-async def _context_from_legacy_remote(
-    request: Request,
-    bearer_token: str,
-) -> AuthContext:
-    settings = get_settings()
-    if not settings.auth_context_url:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sua sessão não foi encontrada. Entre novamente.")
-
-    try:
-        async with httpx.AsyncClient(timeout=settings.auth_timeout_seconds) as client:
-            response = await client.get(
-                settings.auth_context_url,
-                headers={"Authorization": f"Bearer {bearer_token}"},
-                cookies=request.cookies,
-            )
-    except httpx.HTTPError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Não foi possível validar sua sessão porque o Orbital está indisponível.",
-        ) from exc
-
-    if response.status_code in {401, 403}:
-        raise HTTPException(status_code=response.status_code, detail="Sua sessão expirou ou não possui acesso ao Mail.")
-    if response.status_code >= 400:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Não foi possível validar sua sessão. Tente novamente.")
-
-    try:
-        payload = response.json()
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="O Orbital retornou uma resposta de autenticação inválida.",
-        ) from exc
-    return _context_from_payload(payload)
+def _standalone_context(settings: Settings) -> AuthContext:
+    return AuthContext(
+        user_id=settings.dev_user_id,
+        tenant_code=str(settings.dev_tenant_code).strip().lower(),
+        is_admin=settings.dev_is_admin,
+        permissions=frozenset({"mail.view", "mail.manage", "mail.send"}),
+    )
 
 
 async def get_auth_context(
@@ -98,28 +63,36 @@ async def get_auth_context(
 ) -> AuthContext:
     settings = get_settings()
 
-    if settings.auth_mode == "disabled":
-        # Standalone local: os três valores vêm exclusivamente do .env do orbital-mail.
-        tenant_code = str(settings.dev_tenant_code or "").strip().lower()
-        if not tenant_code:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AUTH_DEV_TENANT_CODE não configurado para AUTH_MODE=disabled.",
+    if settings.auth_mode == "standalone":
+        return _standalone_context(settings)
+
+    token = _extract_token(request, authorization)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão não informada.")
+    if not settings.auth_context_url:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AUTH_CONTEXT_URL não configurada.")
+
+    try:
+        async with httpx.AsyncClient(timeout=settings.auth_timeout_seconds) as client:
+            response = await client.get(
+                settings.auth_context_url,
+                headers={"Authorization": f"Bearer {token}"},
+                cookies=request.cookies,
             )
-        return AuthContext(
-            user_id=settings.dev_user_id,
-            tenant_code=tenant_code,
-            is_admin=settings.dev_is_admin,
-            permissions=frozenset({"mail.view", "mail.manage", "mail.send"}),
-        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Serviço de autenticação indisponível.",
+        ) from exc
 
-    session_context = _context_from_mail_session(request)
-    if session_context is not None:
-        return session_context
+    if response.status_code in {401, 403}:
+        raise HTTPException(status_code=response.status_code, detail="Sessão inválida ou sem acesso ao Mail.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Falha ao validar a sessão.")
 
-    # Compatibilidade opcional com um proxy/context endpoint já existente.
-    bearer_token = _extract_bearer(authorization)
-    if bearer_token:
-        return await _context_from_legacy_remote(request, bearer_token)
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Resposta de autenticação inválida.") from exc
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sua sessão não foi encontrada. Entre novamente.")
+    return _context_from_payload(payload)

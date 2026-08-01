@@ -26,7 +26,7 @@ const mailItems = [
   <title>{title} · Orbital Mail</title>
   <script is:inline src="/scripts/api-errors.js"></script>
 </head>
-<body data-api-url={apiUrl}>
+<body data-api-url={apiUrl} data-orbital-home-url={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}>
   <div class="app-shell">
     <OrbitalTopBar
       brandHref={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}

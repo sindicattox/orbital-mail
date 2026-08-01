@@ -16,11 +16,7 @@ python3 "$R/deploy/core/env_tools.py" set "$LOCAL_ENV" "$TEMP_ENV" \
   "APP_PORT=$DEPLOY_API_PORT" \
   "APP_CORS_ORIGINS=$DEPLOY_PUBLIC_URL,$DEPLOY_ORBITAL_URL" \
   "AUTH_MODE=remote" \
-  "AUTH_AUTHORIZE_URL=$DEPLOY_ORBITAL_URL/auth/sso/authorize" \
-  "AUTH_TOKEN_URL=http://127.0.0.1:8001/auth/sso/token" \
-  "AUTH_REDIRECT_URI=$DEPLOY_PUBLIC_URL/api/mail/auth/callback" \
-  "AUTH_WEB_URL=$DEPLOY_PUBLIC_URL/" \
-  "AUTH_COOKIE_SECURE=true" \
+  "AUTH_CONTEXT_URL=http://127.0.0.1:8001/auth/context" \
   "EMAIL_UPLOAD_DIR=/home/ubuntu/storage/tenants/{tenant}/media/email_campaign" \
   "EMAIL_UPLOAD_PUBLIC_URL=$DEPLOY_PUBLIC_URL/api/mail/uploads"
 chmod 600 "$TEMP_ENV"
@@ -54,8 +50,7 @@ python3 -m venv .venv
 from core.settings import get_settings
 settings = get_settings()
 print(f'Configuração validada: {settings.app_service} / {settings.app_env}')
-print(f'SSO autorizador: {settings.auth_authorize_url}')
-print(f'SSO callback: {settings.auth_redirect_uri}')
+print(f'Contexto de autenticação: {settings.auth_context_url}')
 PY
 echo "Serviço da API instalado e preparado."
 REMOTE
