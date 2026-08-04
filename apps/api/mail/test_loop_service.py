@@ -18,6 +18,7 @@ from core.auth import AuthContext, get_auth_context
 from core.database import get_db, get_engine
 from core.settings import API_DIR, get_settings
 from mail.delivery_test_service import TestSendPayload as DeliveryTestSendPayload, _send_smtp, _send_smtp2go
+from mail.unsubscribe import append_unsubscribe_footer, one_click_unsubscribe_url, unsubscribe_headers, unsubscribe_url
 from mail.delivery_policy import accepted_decision, exception_decision, DeliveryDecision
 
 router = APIRouter(tags=["mail-loop-test"])
@@ -315,16 +316,24 @@ def _worker(campaign_id: int, tenant_code: str, provider: str, stop_event: threa
             if item is None:
                 return
             campaign = _load_campaign(db, campaign_id, tenant_code)
+            opt_out_url = unsubscribe_url(item["email"], tenant_code, campaign_id)
+            one_click_url = one_click_unsubscribe_url(item["email"], tenant_code, campaign_id)
+            body_html, body_text = append_unsubscribe_footer(
+                campaign.get("body_html") or "",
+                campaign.get("body_text"),
+                opt_out_url,
+            )
             payload = DeliveryTestSendPayload(
                 provider=provider,
                 to_email=item["email"],
                 to_name=item.get("name") or "",
                 subject=campaign["subject"],
-                body_html=campaign.get("body_html") or "",
-                body_text=campaign.get("body_text"),
+                body_html=body_html,
+                body_text=body_text,
                 from_name=campaign.get("sender_name"),
                 from_email=campaign.get("sender_email"),
                 reply_to=campaign.get("reply_to"),
+                headers=unsubscribe_headers(one_click_url),
             )
             try:
                 result = _send_smtp2go(payload) if provider == "smtp2go" else _send_smtp(payload)

@@ -77,6 +77,8 @@ class Settings(BaseSettings):
     mail_upload_dir: str = Field("/home/daniel/Code/data/orbital-mail/uploads", validation_alias="EMAIL_UPLOAD_DIR")
     mail_public_upload_url: str = Field("http://127.0.0.1:8104/api/mail/uploads", validation_alias="EMAIL_UPLOAD_PUBLIC_URL")
     mail_upload_max_bytes: int = Field(5_242_880, validation_alias="EMAIL_UPLOAD_MAX_BYTES")
+    mail_public_url: str = Field("http://127.0.0.1:4106", validation_alias="MAIL_PUBLIC_URL")
+    mail_unsubscribe_secret: str | None = Field(None, validation_alias="MAIL_UNSUBSCRIBE_SECRET")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

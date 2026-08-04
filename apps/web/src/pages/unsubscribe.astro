@@ -1,0 +1,104 @@
+---
+import { apiUrl } from '../config/api-url';
+
+const token = Astro.url.searchParams.get('token') || '';
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Descadastro | Orbital Mail</title>
+    <style>
+      :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f4f6f8; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+      main { width: min(100%, 520px); background: #fff; border: 1px solid #e3e8ef; border-radius: 16px; padding: 32px; box-shadow: 0 18px 50px rgba(23, 32, 51, .08); }
+      h1 { margin: 0 0 12px; font-size: 1.65rem; }
+      p { margin: 0 0 18px; line-height: 1.6; color: #556176; }
+      strong { color: #172033; }
+      button { width: 100%; min-height: 46px; border: 0; border-radius: 10px; padding: 0 18px; background: #172033; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+      button:disabled { opacity: .55; cursor: default; }
+      .status { margin-top: 18px; padding: 12px 14px; border-radius: 10px; background: #f4f6f8; color: #556176; }
+      .success { background: #edf8f1; color: #1f6b3a; }
+      .error { background: #fff0f0; color: #9f2f2f; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Descadastro de e-mails</h1>
+      <div id="content">
+        <p>Validando seu link de descadastro…</p>
+      </div>
+      <div id="status" class="status" hidden></div>
+    </main>
+
+    <script define:vars={{ apiUrl, token }}>
+      const content = document.querySelector('#content');
+      const statusBox = document.querySelector('#status');
+
+      function showStatus(message, type = '') {
+        statusBox.textContent = message;
+        statusBox.className = `status ${type}`.trim();
+        statusBox.hidden = false;
+      }
+
+      async function load() {
+        if (!token) {
+          content.innerHTML = '<p>O link de descadastro está incompleto.</p>';
+          showStatus('Solicite um novo link pelo e-mail recebido.', 'error');
+          return;
+        }
+
+        try {
+          const response = await fetch(`${apiUrl}/api/mail/public/unsubscribe?token=${encodeURIComponent(token)}`);
+          const data = await response.json();
+          if (!response.ok) throw new Error(data?.detail || 'Link de descadastro inválido.');
+
+          if (data.unsubscribed) {
+            content.innerHTML = `<p>O endereço <strong>${data.email_masked}</strong> já está descadastrado dos e-mails do tenant <strong>${data.tenant_code}</strong>.</p>`;
+            showStatus('Nenhuma ação adicional é necessária.', 'success');
+            return;
+          }
+
+          content.innerHTML = `
+            <p>Confirme o descadastro de <strong>${data.email_masked}</strong> dos e-mails do tenant <strong>${data.tenant_code}</strong>.</p>
+            <button id="confirm" type="button">Confirmar descadastro</button>
+          `;
+          document.querySelector('#confirm').addEventListener('click', confirmUnsubscribe);
+        } catch (error) {
+          content.innerHTML = '<p>Não foi possível validar este link.</p>';
+          showStatus(error.message || 'Link de descadastro inválido.', 'error');
+        }
+      }
+
+      async function confirmUnsubscribe(event) {
+        const button = event.currentTarget;
+        button.disabled = true;
+        button.textContent = 'Confirmando…';
+        statusBox.hidden = true;
+
+        try {
+          const form = new URLSearchParams({ token });
+          const response = await fetch(`${apiUrl}/api/mail/public/unsubscribe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: form.toString(),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data?.detail || 'Não foi possível confirmar o descadastro.');
+          content.innerHTML = `<p>O endereço <strong>${data.email_masked}</strong> foi descadastrado dos e-mails do tenant <strong>${data.tenant_code}</strong>.</p>`;
+          showStatus('Descadastro confirmado.', 'success');
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = 'Confirmar descadastro';
+          showStatus(error.message || 'Não foi possível confirmar o descadastro.', 'error');
+        }
+      }
+
+      load();
+    </script>
+  </body>
+</html>

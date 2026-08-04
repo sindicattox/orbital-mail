@@ -28,6 +28,7 @@ class TestSendPayload(BaseModel):
     from_name: str | None = Field(default=None, max_length=255)
     from_email: EmailStr | None = None
     reply_to: EmailStr | None = None
+    headers: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("provider")
     @classmethod
@@ -77,6 +78,11 @@ def _send_smtp2go(payload: TestSendPayload) -> TestSendResponse:
     }
     if reply_to:
         request_payload["reply_to"] = reply_to
+    if payload.headers:
+        request_payload["custom_headers"] = [
+            {"header": name, "value": value}
+            for name, value in payload.headers.items()
+        ]
 
     request = urllib.request.Request(
         settings.smtp2go_api_url,
@@ -175,6 +181,8 @@ def _send_smtp(payload: TestSendPayload) -> TestSendResponse:
     message["Subject"] = payload.subject
     if reply_to:
         message["Reply-To"] = reply_to
+    for name, value in payload.headers.items():
+        message[name] = value
     message.set_content(payload.body_text or _plain_text(payload.body_html))
     message.add_alternative(payload.body_html, subtype="html")
 

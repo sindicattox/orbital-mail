@@ -6,6 +6,7 @@ from mail.router import router as mail_router
 from mail.images import router as mail_images_router
 from mail.delivery_test_service import router as mail_test_send_router
 from mail.test_loop_service import router as mail_test_loop_router
+from mail.unsubscribe import router as mail_unsubscribe_router
 from routes.auth import router as auth_router
 from routes.health import router as health_router
 
@@ -25,3 +26,4 @@ app.include_router(mail_router, prefix="/api/mail")
 app.include_router(mail_images_router, prefix="/api/mail")
 app.include_router(mail_test_send_router, prefix="/api/mail")
 app.include_router(mail_test_loop_router, prefix="/api/mail")
+app.include_router(mail_unsubscribe_router, prefix="/api/mail")
