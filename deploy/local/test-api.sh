@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-R="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PYTHON="$R/apps/api/.venv/bin/python"
-[[ -x "$PYTHON" ]] || PYTHON=python3
-cd "$R"
-"$PYTHON" -m pytest -q
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
+[[ -x apps/api/.venv/bin/pytest ]] || { echo "Execute ./deploy/local/setup-api.sh primeiro." >&2; exit 1; }
+apps/api/.venv/bin/pytest -q tests

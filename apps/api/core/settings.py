@@ -7,15 +7,12 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 API_DIR = Path(__file__).resolve().parents[1]
-API_ENV_FILE = API_DIR / ".env"
 PRODUCTION_ENVS = {"production", "prod", "remote"}
 PUBLIC_UPLOAD_PATH = "/api/mail/uploads"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=API_ENV_FILE,
-        env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
         populate_by_name=True,

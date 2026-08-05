@@ -1,11 +1,9 @@
 from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1]
 
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def test_remote_mail_sso_uses_admin_and_real_callback():
-    target = (ROOT / 'deploy/remote/target.conf').read_text(encoding='utf-8')
-    setup = (ROOT / 'deploy/remote/setup-api.sh').read_text(encoding='utf-8')
-    assert 'DEPLOY_ORBITAL_URL=https://admin.anpprev.org' in target
-    assert 'AUTH_AUTHORIZE_URL=$DEPLOY_ORBITAL_URL/auth/sso/authorize' in setup
-    assert 'AUTH_REDIRECT_URI=$DEPLOY_PUBLIC_URL/api/mail/auth/callback' in setup
+def test_remote_mail_auth_comes_from_production_config():
+    target=(ROOT/'deploy/remote/target.conf').read_text()
+    auth=(ROOT/'apps/api/config/production/auth.env').read_text()
+    assert 'admin.anpprev.org' not in target
+    assert 'AUTH_MODE=remote' in auth
+    assert 'AUTH_CONTEXT_URL=http://127.0.0.1:8001/auth/context' in auth

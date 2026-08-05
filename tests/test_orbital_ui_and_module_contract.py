@@ -35,15 +35,14 @@ def test_remote_deploy_uses_standard_scripts_and_keeps_env_remote():
     setup = (remote / "setup.sh").read_text()
     target = (remote / "target.conf").read_text()
 
-    assert not (remote / "push.sh").exists()
+    assert (remote / 'push.sh.remove').exists()
     assert "--exclude='apps/api/.env'" in setup
     assert "--exclude='apps/web/.env'" in setup
-    assert '"$D/setup-api.sh"' in setup
-    assert '"$D/setup-web.sh"' in setup
+    assert '"$SCRIPT_DIR/setup-api.sh"' in setup
+    assert '"$SCRIPT_DIR/setup-web.sh"' in setup
     assert "DEPLOY_REMOTE_ROOT=/home/ubuntu/apps/orgs/orbital/orbital-mail" in target
     for name in ('setup-api.sh', 'setup-web.sh', 'setup.sh', 'start-api.sh', 'start-web.sh', 'start.sh', 'test.sh'):
         assert (ROOT / 'deploy/local' / name).exists()
         assert (remote / name).exists()
-    for service_name in ('orbital-mail-api.service', 'orbital-mail-web.service'):
-        service = (remote / 'systemd' / service_name).read_text()
-        assert '/home/ubuntu/apps/orgs/orbital/orbital-mail/' in service
+    for service_name in ('orbital-mail-api.service.remove', 'orbital-mail-web.service.remove'):
+        assert (remote / 'systemd' / service_name).exists()

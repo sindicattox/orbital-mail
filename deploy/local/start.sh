@@ -1,13 +1,24 @@
 #!/usr/bin/env bash
+# Pode ser executado de qualquer diretório.
 set -euo pipefail
-D="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PIDS=()
+
 cleanup() {
-  ((${#PIDS[@]})) && kill "${PIDS[@]}" 2>/dev/null || true
-  wait 2>/dev/null || true
+    ((${#PIDS[@]})) && kill "${PIDS[@]}" 2>/dev/null || true
+    wait 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM
-echo "Iniciando API e Web locais."
-"$D/start-api.sh" & PIDS+=("$!")
-"$D/start-web.sh" & PIDS+=("$!")
+
+trap cleanup INT TERM EXIT
+
+echo "Iniciando web e API locais. Pressione Ctrl+C para encerrar."
+
+"$SCRIPT_DIR/start-web.sh" &
+PIDS+=("$!")
+
+"$SCRIPT_DIR/start-api.sh" &
+PIDS+=("$!")
+
+
 wait -n "${PIDS[@]}"

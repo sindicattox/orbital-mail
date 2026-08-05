@@ -19,12 +19,12 @@ def test_home_and_navigation_link_to_test_send():
 
 
 def test_env_documents_both_providers_and_send_lock():
-    env = (ROOT / "apps/api/.env.example").read_text()
+    env = ''.join(p.read_text() for p in sorted((ROOT / 'apps/api/config/local').glob('*.env')))
     for key in [
         "EMAIL_SEND_ENABLED=false",
         "SMTP2GO_API_KEY=",
         "SMTP_HOST=",
-        "SMTP_PORT=587",
+        "SMTP_PORT=465",
         "SMTP_SECURITY=tls",
     ]:
         assert key in env

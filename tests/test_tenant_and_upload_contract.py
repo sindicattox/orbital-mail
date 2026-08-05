@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_tenant_is_not_fixed_in_environment():
     settings = (ROOT / 'apps/api/core/settings.py').read_text()
-    env_example = (ROOT / 'apps/api/.env.example').read_text()
+    env_example = ''.join(p.read_text() for p in sorted((ROOT / 'apps/api/config/local').glob('*.env')))
     router = (ROOT / 'apps/api/mail/router.py').read_text()
 
     assert 'mail_tenant_code' not in settings.lower()
@@ -16,14 +16,14 @@ def test_tenant_is_not_fixed_in_environment():
 def test_upload_is_public_and_separated_by_authenticated_tenant():
     images = (ROOT / 'apps/api/mail/images.py').read_text()
     storage = (ROOT / 'apps/api/mail/image_storage.py').read_text()
-    env_example = (ROOT / 'apps/api/.env.example').read_text()
+    env_example = ''.join(p.read_text() for p in sorted((ROOT / 'apps/api/config/local').glob('*.env')))
 
     assert 'auth.tenant_code' in images
     assert 'mail_public_upload_url' in images
     assert '@router.get("/uploads/{tenant_code}/{filename}"' in images
     assert 'tenant_upload_dir(settings, tenant_code)' in images
     assert 'configured.replace("{tenant}", tenant)' in storage
-    assert 'EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8104/api/mail/uploads' in env_example
+    assert 'EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/api/mail/uploads' in env_example
 
 
 def test_editor_upload_credentials_timeout_and_active_buttons():
@@ -40,7 +40,7 @@ def test_editor_upload_credentials_timeout_and_active_buttons():
 def test_disabled_auth_uses_explicit_dev_tenant_from_settings():
     settings = (ROOT / 'apps/api/core/settings.py').read_text()
     auth = (ROOT / 'apps/api/core/auth.py').read_text()
-    env_example = (ROOT / 'apps/api/.env.example').read_text()
+    env_example = ''.join(p.read_text() for p in sorted((ROOT / 'apps/api/config/local').glob('*.env')))
 
     assert 'dev_tenant_code' in settings
     assert 'settings.dev_tenant_code' in auth
