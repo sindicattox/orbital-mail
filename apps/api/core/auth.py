@@ -48,23 +48,12 @@ def _context_from_payload(payload: dict) -> AuthContext:
     )
 
 
-def _standalone_context(settings: Settings) -> AuthContext:
-    return AuthContext(
-        user_id=settings.dev_user_id,
-        tenant_code=str(settings.dev_tenant_code).strip().lower(),
-        is_admin=settings.dev_is_admin,
-        permissions=frozenset({"mail.view", "mail.manage", "mail.send"}),
-    )
-
 
 async def get_auth_context(
     request: Request,
     authorization: str | None = Header(default=None),
 ) -> AuthContext:
     settings = get_settings()
-
-    if settings.auth_mode == "standalone":
-        return _standalone_context(settings)
 
     token = _extract_token(request, authorization)
     if not token:

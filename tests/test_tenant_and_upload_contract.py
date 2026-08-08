@@ -23,7 +23,7 @@ def test_upload_is_public_and_separated_by_authenticated_tenant():
     assert '@router.get("/uploads/{tenant_code}/{filename}"' in images
     assert 'tenant_upload_dir(settings, tenant_code)' in images
     assert 'configured.replace("{tenant}", tenant)' in storage
-    assert 'EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/api/mail/uploads' in env_example
+    assert 'EMAIL_UPLOAD_PUBLIC_URL=https://admin.localhost/orbital-mail/api/mail/uploads' in env_example
 
 
 def test_editor_upload_credentials_timeout_and_active_buttons():
@@ -37,15 +37,16 @@ def test_editor_upload_credentials_timeout_and_active_buttons():
     assert 'box-shadow:inset' in css
 
 
-def test_disabled_auth_uses_explicit_dev_tenant_from_settings():
+def test_auth_is_always_remote_and_has_no_dev_bypass():
     settings = (ROOT / 'apps/api/core/settings.py').read_text()
     auth = (ROOT / 'apps/api/core/auth.py').read_text()
     env_example = ''.join(p.read_text() for p in sorted((ROOT / 'apps/api/config/local').glob('*.env')))
 
-    assert 'dev_tenant_code' in settings
-    assert 'settings.dev_tenant_code' in auth
-    assert 'x-tenant-code' not in auth.lower()
-    assert 'AUTH_DEV_TENANT_CODE=anpprev' in env_example
+    assert 'AUTH_MODE=remote' in env_example
+    assert 'AUTH_DEV_' not in env_example
+    assert '_standalone_context' not in auth
+    assert 'auth_mode == "standalone"' not in auth
+    assert 'AUTH_MODE deve ser remote no orbital-mail.' in settings
 
 
 def test_production_rejects_non_public_image_url():

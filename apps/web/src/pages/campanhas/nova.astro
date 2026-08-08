@@ -2,6 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
 import { apiUrl } from '../../config/api-url';
+const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <AppLayout title="Nova campanha">
   <section class="page-head campaign-page-head">
@@ -34,12 +35,12 @@ import { apiUrl } from '../../config/api-url';
     </section>
 
     <div class="form-actions form-actions-full">
-      <a class="button secondary" href="/campanhas">Cancelar</a>
+        <a class="button secondary" href={`${moduleBase}/campanhas`}>Cancelar</a>
       <button class="button" type="submit">Salvar campanha</button>
     </div>
   </form>
 </AppLayout>
-<script define:vars={{ apiUrl }}>
+<script define:vars={{apiUrl, moduleBase}}>
   const form = document.querySelector('#campaignForm');
   const message = document.querySelector('#message');
   const apiErrors = window.OrbitalApiErrors;
@@ -56,7 +57,7 @@ import { apiUrl } from '../../config/api-url';
     try {
       const response = await fetch(`${apiUrl}/campaigns`, {method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
       if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível salvar a campanha.'));
-      window.location.href = '/campanhas?saved=1';
+        window.location.href = `${moduleBase}/campanhas?saved=1`;
     } catch(error){showMessage(apiErrors.fromException(error, 'Não foi possível salvar a campanha.'));submit.disabled=false;}
   });
 </script>

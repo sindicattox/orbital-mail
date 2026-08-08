@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 "$SCRIPT_DIR/start-api.sh"
 "$SCRIPT_DIR/start-web.sh"
+
 echo "Aplicação remota iniciada e validada."

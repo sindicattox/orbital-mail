@@ -81,8 +81,9 @@ const { apiBase, moduleName, modulePath, actionLabel } = Astro.props;
       const dialog = document.querySelector('[data-dialog]');
       const frame = document.querySelector('[data-frame]');
       const resolvedApi = new URL(apiBase, window.location.origin);
-      const healthUrl = new URL('/api/health', resolvedApi.origin).toString();
-      const dbHealthUrl = new URL('/api/health/db', resolvedApi.origin).toString();
+      const serviceApiPath = resolvedApi.pathname.replace(/\/mail\/?$/, '');
+      const healthUrl = new URL(`${serviceApiPath}/health`, resolvedApi.origin).toString();
+      const dbHealthUrl = new URL(`${serviceApiPath}/health/db`, resolvedApi.origin).toString();
 
       document.querySelector('[data-web-origin]').textContent = window.location.origin;
       document.querySelector('[data-api-base]').textContent = resolvedApi.toString();

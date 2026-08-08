@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+from pydantic import ValidationError
 from starlette.requests import Request
 
 from core import auth as auth_core
@@ -13,50 +15,56 @@ def _request(authorization: str | None = None) -> Request:
     return Request({"type": "http", "method": "GET", "path": "/", "headers": headers})
 
 
-def test_standalone_uses_all_three_dev_fallback_values(monkeypatch):
-    settings = Settings(
-        _env_file=None,
-        auth_mode="standalone",
-        dev_tenant_code="Sinproprev",
-        dev_user_id=77,
-        dev_is_admin=False,
-    )
-    monkeypatch.setattr(auth_core, "get_settings", lambda: settings)
+def _settings(**kwargs) -> Settings:
+    values = {
+        "APP_ENV": "development",
+        "AUTH_MODE": "remote",
+        "AUTH_CONTEXT_URL": "http://orbital.test/auth/context",
+    }
+    values.update(kwargs)
+    return Settings(_env_file=None, **values)
 
-    context = asyncio.run(auth_core.get_auth_context(_request(), None))
 
-    assert context.tenant_code == "sinproprev"
-    assert context.user_id == 77
-    assert context.is_admin is False
-    assert context.permissions == frozenset({"mail.view", "mail.manage", "mail.send"})
+def test_standalone_auth_is_forbidden():
+    with pytest.raises(ValidationError, match="AUTH_MODE deve ser remote"):
+        Settings(
+            _env_file=None,
+            APP_ENV="development",
+            AUTH_MODE="standalone",
+            AUTH_CONTEXT_URL="http://orbital.test/auth/context",
+        )
 
 
 def test_remote_requires_token(monkeypatch):
-    settings = Settings(_env_file=None, auth_mode="remote", auth_context_url="http://orbital.test/auth/context")
+    settings = _settings()
     monkeypatch.setattr(auth_core, "get_settings", lambda: settings)
 
-    try:
+    with pytest.raises(Exception) as exc_info:
         asyncio.run(auth_core.get_auth_context(_request(), None))
-    except Exception as exc:
-        assert getattr(exc, "status_code", None) == 401
-    else:
-        raise AssertionError("Remote sem token deveria retornar 401")
+    assert getattr(exc_info.value, "status_code", None) == 401
 
 
 def test_remote_forwards_bearer_and_uses_orbital_context(monkeypatch):
-    settings = Settings(_env_file=None, auth_mode="remote", auth_context_url="http://orbital.test/auth/context")
+    settings = _settings()
     monkeypatch.setattr(auth_core, "get_settings", lambda: settings)
 
     class FakeResponse:
         status_code = 200
+
         @staticmethod
         def json():
             return {"user_id": 91, "tenant_code": "Asaclub", "is_admin": True, "permissions": ["mail.view"]}
 
     class FakeClient:
-        def __init__(self, **_kwargs): pass
-        async def __aenter__(self): return self
-        async def __aexit__(self, *_args): return None
+        def __init__(self, **_kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
         async def get(self, url, headers, cookies):
             assert url == settings.auth_context_url
             assert headers == {"Authorization": "Bearer token-123"}

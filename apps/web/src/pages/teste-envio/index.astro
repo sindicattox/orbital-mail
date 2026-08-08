@@ -2,6 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlEditor.astro';
 import { apiUrl } from '../../config/api-url';
+const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <AppLayout title="Teste de envio">
   <section class="page-head campaign-page-head">
@@ -9,7 +10,7 @@ import { apiUrl } from '../../config/api-url';
       <h1>Teste de envio</h1>
       <p>Envie uma mensagem isolada pelo SMTP2GO ou por um servidor SMTP tradicional.</p>
     </div>
-    <a class="button secondary" href="/">Voltar</a>
+      <a class="button secondary" href={`${moduleBase}/`}>Voltar</a>
   </section>
 
   <div class="notice" style="margin-bottom:1rem">
@@ -70,7 +71,7 @@ import { apiUrl } from '../../config/api-url';
     </section>
 
     <div class="form-actions form-actions-full">
-      <a class="button secondary" href="/">Cancelar</a>
+        <a class="button secondary" href={`${moduleBase}/`}>Cancelar</a>
       <button class="button" type="submit">Enviar teste</button>
     </div>
   </form>

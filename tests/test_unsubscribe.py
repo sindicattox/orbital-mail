@@ -69,5 +69,5 @@ def test_merge_is_strictly_per_tenant():
 def test_public_page_does_not_use_authenticated_layout():
     page = (ROOT / "apps" / "web" / "src" / "pages" / "unsubscribe.astro").read_text()
     assert "AppLayout" not in page
-    assert "/api/mail/public/unsubscribe" in page
+    assert "${apiUrl}/public/unsubscribe" in page
     assert "Confirmar descadastro" in page

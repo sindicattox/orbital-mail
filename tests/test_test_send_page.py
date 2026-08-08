@@ -14,8 +14,8 @@ def test_test_send_page_reuses_editor_and_has_both_providers():
 def test_home_and_navigation_link_to_test_send():
     home = (ROOT / "apps/web/src/pages/index.astro").read_text()
     layout = (ROOT / "apps/web/src/layouts/AppLayout.astro").read_text()
-    assert 'href="/teste-envio"' in home
-    assert "href: '/teste-envio'" in layout
+    assert 'href={`${moduleBase}/teste-envio`}' in home
+    assert "href: `${moduleBase}/teste-envio`" in layout
 
 
 def test_env_documents_both_providers_and_send_lock():

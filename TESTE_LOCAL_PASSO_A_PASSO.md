@@ -41,7 +41,7 @@ cd /home/daniel/Code/orgs/orbital/orbital-mail
 ## Etapa 5 — saúde da API
 
 ```bash
-curl -i http://127.0.0.1:8104/api/health
+curl -i http://127.0.0.1:8106/api/health
 ```
 
 Esperado: HTTP 200.
@@ -53,13 +53,13 @@ No `apps/api/.env`, confirme exatamente:
 
 ```env
 EMAIL_UPLOAD_DIR=/home/daniel/storage/tenants/{tenant}/media/email_campaign
-EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8104/api/mail/uploads
+EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/api/mail/uploads
 ```
 
 Não use `/uploads/mail`. Reinicie a API, insira uma imagem nova no editor e confira no DevTools que o `Request URL` começa com:
 
 ```text
-http://127.0.0.1:8104/api/mail/uploads/
+http://127.0.0.1:8106/api/mail/uploads/
 ```
 
 A rota não depende de CORS e deve responder HTTP 200.

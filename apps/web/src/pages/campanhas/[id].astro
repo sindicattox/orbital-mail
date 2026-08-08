@@ -4,6 +4,7 @@ import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlE
 import { apiUrl } from '../../config/api-url';
 export const prerender = false;
 const { id } = Astro.params;
+const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <AppLayout title="Editar campanha">
   <section class="page-head campaign-page-head">
@@ -36,12 +37,12 @@ const { id } = Astro.params;
     </section>
 
     <div class="form-actions form-actions-full">
-      <a class="button secondary" href="/campanhas">Voltar</a>
+        <a class="button secondary" href={`${moduleBase}/campanhas`}>Voltar</a>
       <button class="button" type="submit">Salvar alterações</button>
     </div>
   </form>
 </AppLayout>
-<script define:vars={{ apiUrl, id }}>
+<script define:vars={{apiUrl, id, moduleBase}}>
   const form = document.querySelector('#campaignForm');
   const message = document.querySelector('#message');
   const apiErrors = window.OrbitalApiErrors;
@@ -64,7 +65,7 @@ const { id } = Astro.params;
     try{
       const response=await fetch(`${apiUrl}/campaigns/${id}`,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
       if(!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível salvar as alterações.'));
-      window.location.href='/campanhas?saved=updated';
+        window.location.href = `${moduleBase}/campanhas?saved=updated`;
     }catch(error){showMessage(apiErrors.fromException(error, 'Não foi possível salvar as alterações.'));}finally{submit.disabled=false;}
   });
   load();

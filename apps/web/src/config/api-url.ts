@@ -1,10 +1,7 @@
-const configuredApiUrl = import.meta.env.PROD
-  ? import.meta.env.PUBLIC_REMOTE_API_URL
-  : import.meta.env.PUBLIC_LOCAL_API_URL;
+const configuredApiUrl = import.meta.env.PUBLIC_API_URL;
 
 if (!configuredApiUrl) {
-  const variable = import.meta.env.PROD ? 'PUBLIC_REMOTE_API_URL' : 'PUBLIC_LOCAL_API_URL';
-  throw new Error(`Defina ${variable} em apps/web/config/<contexto>/services.env.`);
+    throw new Error('Defina PUBLIC_API_URL no arquivo de configuração da Web.');
 }
 
 export const apiUrl = String(configuredApiUrl).replace(/\/+$/, '');

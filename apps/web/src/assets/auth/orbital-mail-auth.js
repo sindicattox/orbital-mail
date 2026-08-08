@@ -38,9 +38,7 @@
   function loginUrl() {
     const home = new URL(orbitalHomeUrl, window.location.origin);
     const login = new URL('/login', home.origin);
-    if (home.origin === window.location.origin) {
       login.searchParams.set('return_to', `${window.location.pathname}${window.location.search}${window.location.hash}`);
-    }
     return login.toString();
   }
 

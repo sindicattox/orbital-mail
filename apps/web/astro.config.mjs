@@ -1,16 +1,25 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
+import {loadConfigEnv} from './scripts/load-env.mjs';
 
-const host = process.env.APP_HOST;
-const port = Number(process.env.APP_PORT);
-
-if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
-  throw new Error('APP_HOST e APP_PORT devem vir de apps/web/config/<contexto>/app.env.');
-}
+const fileEnv = loadConfigEnv();
+const env = {...process.env, ...fileEnv};
+const publicDefines = Object.fromEntries(
+    Object.entries(env)
+        .filter(([key]) => key.startsWith('PUBLIC_'))
+        .map(([key, value]) => [`import.meta.env.${key}`, JSON.stringify(value)]),
+);
 
 export default defineConfig({
   output: 'server',
   adapter: node({ mode: 'standalone' }),
-  server: { host, port },
-  vite: { envPrefix: 'PUBLIC_' },
+    base: '/orbital-mail',
+    server: {
+        host: env.APP_HOST || '0.0.0.0',
+        port: Number(env.APP_PORT || 4106),
+    },
+    vite: {
+        define: publicDefines,
+        envPrefix: 'PUBLIC_',
+    },
 });

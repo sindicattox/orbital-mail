@@ -62,5 +62,5 @@ def test_recipients_page_uses_shared_table_and_input_styles():
 def test_create_and_update_return_to_list():
     create_page = read('apps/web/src/pages/campanhas/nova.astro')
     edit_page = read('apps/web/src/pages/campanhas/[id].astro')
-    assert "window.location.href = '/campanhas?saved=1'" in create_page
-    assert "window.location.href='/campanhas?saved=updated'" in edit_page
+    assert "window.location.href = `${modulebase}/campanhas?saved=1`" in create_page
+    assert "window.location.href=`${modulebase}/campanhas?saved=updated`" in edit_page

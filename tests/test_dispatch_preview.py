@@ -19,7 +19,7 @@ def test_dispatch_preview_page_is_visible_in_top_menu_and_never_changes_queue():
     page = (ROOT / 'apps/web/src/pages/fila-envios/index.astro').read_text()
 
     assert "label: 'Fila de envios'" in layout
-    assert "href: '/fila-envios'" in layout
+    assert "href: `${moduleBase}/fila-envios`" in layout
     assert '/dispatch-preview' in page
     assert 'EMAIL_SEND_ENABLED=true' in page
     assert "method: 'POST'" not in page

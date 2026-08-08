@@ -7,14 +7,15 @@ import orbitalMailAuthScript from '../assets/auth/orbital-mail-auth.js?raw';
 
 interface Props { title: string; description?: string; }
 const { title, description = '' } = Astro.props;
+const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 const mailItems = [
-  { id: 'overview', label: 'Visão geral', href: '/', exact: true },
-  { id: 'campaigns', label: 'Campanhas', href: '/campanhas' },
-  { id: 'dispatch-queue', label: 'Fila de envios', href: '/fila-envios' },
-  { id: 'lists', label: 'Listas', href: '/listas', disabled: true },
-  { id: 'templates', label: 'Modelos', href: '/modelos' },
-  { id: 'test-send', label: 'Teste de envio', href: '/teste-envio' },
+    {id: 'overview', label: 'Visão geral', href: `${moduleBase}/`, exact: true},
+    {id: 'campaigns', label: 'Campanhas', href: `${moduleBase}/campanhas`},
+    {id: 'dispatch-queue', label: 'Fila de envios', href: `${moduleBase}/fila-envios`},
+    {id: 'lists', label: 'Listas', href: `${moduleBase}/listas`, disabled: true},
+    {id: 'templates', label: 'Modelos', href: `${moduleBase}/modelos`},
+    {id: 'test-send', label: 'Teste de envio', href: `${moduleBase}/teste-envio`},
 ];
 ---
 <!doctype html>
@@ -24,7 +25,7 @@ const mailItems = [
   <meta name="viewport" content="width=device-width" />
   <meta name="description" content={description} />
   <title>{title} · Orbital Mail</title>
-  <script is:inline src="/scripts/api-errors.js"></script>
+    <script is:inline src={`${moduleBase}/scripts/api-errors.js`}></script>
 </head>
 <body data-api-url={apiUrl} data-orbital-home-url={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}>
   <div class="app-shell">

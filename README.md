@@ -27,8 +27,8 @@ AUTH_AUTHORIZE_URL=http://127.0.0.1:4001/auth/sso/authorize
 AUTH_TOKEN_URL=http://127.0.0.1:8001/auth/sso/token
 AUTH_CLIENT_ID=email-app
 AUTH_CLIENT_SECRET=...
-AUTH_REDIRECT_URI=http://127.0.0.1:8104/api/mail/auth/callback
-AUTH_WEB_URL=http://127.0.0.1:4104/
+AUTH_REDIRECT_URI=http://127.0.0.1:8106/api/mail/auth/callback
+AUTH_WEB_URL=http://127.0.0.1:4106/
 AUTH_SESSION_SECRET=...
 AUTH_COOKIE_SECURE=false
 ```
@@ -49,7 +49,7 @@ O `AUTH_REDIRECT_URI` deve ser o callback do Mail já autorizado para o cliente 
 
 ```env
 EMAIL_UPLOAD_DIR=/home/daniel/storage/tenants/{tenant}/media/email_campaign
-EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8104/api/mail/uploads
+EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/api/mail/uploads
 ```
 
 O marcador `{tenant}` é resolvido pelo contexto atual:
@@ -61,7 +61,7 @@ O marcador `{tenant}` é resolvido pelo contexto atual:
 A URL inserida no HTML do e-mail é pública e não exige login:
 
 ```text
-http://127.0.0.1:8104/api/mail/uploads/anpprev/<uuid>.png
+http://127.0.0.1:8106/api/mail/uploads/anpprev/<uuid>.png
 ```
 
 Em produção, `EMAIL_UPLOAD_PUBLIC_URL` precisa usar HTTPS público.
@@ -75,14 +75,14 @@ O caminho público é fixo e canônico:
 A configuração antiga/incorreta abaixo é rejeitada no startup para não gravar imagens quebradas no HTML:
 
 ```env
-EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8104/uploads/mail
+EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/uploads/mail
 ```
 
 Configurações corretas:
 
 ```env
 # Local
-EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8104/api/mail/uploads
+EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/api/mail/uploads
 
 # Produção
 EMAIL_UPLOAD_PUBLIC_URL=https://email.seudominio.org/api/mail/uploads
@@ -105,7 +105,7 @@ O Nginx deve encaminhar a rota canônica para a API, sem expor a pasta com `alia
 
 ```nginx
 location /api/mail/ {
-    proxy_pass http://127.0.0.1:8104/api/mail/;
+    proxy_pass http://127.0.0.1:8106/api/mail/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -156,4 +156,4 @@ O script sincroniza o código, prepara API e Web e reinicia os dois serviços.
 ./deploy/local/start.sh
 ```
 
-A Web usa a porta `4104` e a API usa `8104`.
+A Web usa a porta `4106` e a API usa `8106`.

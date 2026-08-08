@@ -54,5 +54,5 @@ def test_cors_rejects_json_format():
 
 
 def test_production_requires_remote_auth_and_oracle():
-    with pytest.raises(ValueError, match="Configuração de produção incompleta"):
+    with pytest.raises(ValueError, match="AUTH_MODE deve ser remote"):
         Settings(_env_file=None, app_env="production", auth_mode="disabled")

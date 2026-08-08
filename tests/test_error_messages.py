@@ -21,7 +21,7 @@ def test_web_normalizes_api_and_connection_errors():
     helper = (ROOT / 'apps/web/public/scripts/api-errors.js').read_text(encoding='utf-8')
     component = (ROOT / 'apps/web/public/components/mail.js').read_text(encoding='utf-8')
 
-    assert 'src="/scripts/api-errors.js"' in layout
+    assert 'src={`${moduleBase}/scripts/api-errors.js`}' in layout
     assert 'Não foi possível conectar à API do Orbital Mail.' in helper
     assert 'fromResponse' in helper
     assert "import '../scripts/api-errors.js';" in component
@@ -56,7 +56,7 @@ def test_unexpected_api_error_returns_json_with_cors():
     register_error_handlers(app)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=['http://localhost:4104'],
+        allow_origins=['http://localhost:4106'],
         allow_credentials=True,
         allow_methods=['*'],
         allow_headers=['*'],
@@ -68,12 +68,12 @@ def test_unexpected_api_error_returns_json_with_cors():
 
     response = TestClient(app, raise_server_exceptions=False).get(
         '/error',
-        headers={'Origin': 'http://localhost:4104'},
+        headers={'Origin': 'http://localhost:4106'},
     )
 
     assert response.status_code == 500
     assert response.json() == {
         'detail': 'Não foi possível concluir a operação. Tente novamente em instantes.',
     }
-    assert response.headers['access-control-allow-origin'] == 'http://localhost:4104'
+    assert response.headers['access-control-allow-origin'] == 'http://localhost:4106'
     assert 'erro técnico não exposto' not in response.text
