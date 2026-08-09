@@ -19,6 +19,7 @@ from mail.unsubscribe import (
 
 
 def _settings(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.setenv("MAIL_UNSUBSCRIBE_SECRET", "test-secret-with-enough-entropy")
     monkeypatch.setenv("MAIL_PUBLIC_URL", "https://admin.localhost/orbital-mail")
     monkeypatch.setenv(

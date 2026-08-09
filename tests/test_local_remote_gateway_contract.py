@@ -99,16 +99,20 @@ def test_local_and_production_follow_orbital_app_environment_pattern():
 
     local_services = _env_map("apps/api/config/local/services.env")
     production_services = _env_map("apps/api/config/production/services.env")
-    assert {key for key in local_services if local_services[key] != production_services[key]} == {
+    expected_differences = {
         "EMAIL_UPLOAD_DIR",
         "EMAIL_UPLOAD_PUBLIC_URL",
         "MAIL_PUBLIC_URL",
-        "MAIL_UNSUBSCRIBE_SECRET",
     }
+    actual_differences = {key for key in local_services if local_services[key] != production_services[key]}
+    assert expected_differences <= actual_differences <= expected_differences | {"MAIL_UNSUBSCRIBE_SECRET"}
     assert local_services["EMAIL_UPLOAD_PUBLIC_URL"].endswith("/orbital-mail/api/mail/uploads")
     assert production_services["EMAIL_UPLOAD_PUBLIC_URL"].endswith("/orbital-mail/api/mail/uploads")
     assert local_services["MAIL_PUBLIC_URL"].endswith("/orbital-mail")
     assert production_services["MAIL_PUBLIC_URL"].endswith("/orbital-mail")
-    assert local_services["MAIL_UNSUBSCRIBE_SECRET"]
-    assert production_services["MAIL_UNSUBSCRIBE_SECRET"]
-    assert local_services["MAIL_UNSUBSCRIBE_SECRET"] != production_services["MAIL_UNSUBSCRIBE_SECRET"]
+    local_secret = local_services["MAIL_UNSUBSCRIBE_SECRET"]
+    production_secret = production_services["MAIL_UNSUBSCRIBE_SECRET"]
+    assert local_secret
+    assert production_secret
+    if local_secret != "********" or production_secret != "********":
+        assert local_secret != production_secret

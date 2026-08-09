@@ -29,7 +29,6 @@ APP_ONLY = {
     "deploy/remote/test-db.sh",
     "deploy/remote/test-login-real.sh",
     "deploy/remote/test-oracle-pool-live.sh",
-    "deploy/temp/inspect-oracle-pool.sh",
 }
 
 
