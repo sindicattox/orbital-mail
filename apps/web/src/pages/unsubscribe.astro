@@ -53,7 +53,7 @@ const token = Astro.url.searchParams.get('token') || '';
         }
 
         try {
-            const response = await fetch(`${apiUrl}/public/unsubscribe?token=${encodeURIComponent(token)}`);
+          const response = await fetch(`${apiUrl}/public/unsubscribe?token=${encodeURIComponent(token)}`);
           const data = await response.json();
           if (!response.ok) throw new Error(data?.detail || 'Link de descadastro inválido.');
 
@@ -82,7 +82,7 @@ const token = Astro.url.searchParams.get('token') || '';
 
         try {
           const form = new URLSearchParams({ token });
-            const response = await fetch(`${apiUrl}/public/unsubscribe`, {
+          const response = await fetch(`${apiUrl}/public/unsubscribe`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: form.toString(),

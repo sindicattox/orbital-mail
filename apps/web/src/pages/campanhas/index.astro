@@ -4,7 +4,7 @@ import { apiUrl } from '../../config/api-url';
 const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <AppLayout title="Campanhas">
-    <orbital-mail api-base={apiUrl} base-url={moduleBase}></orbital-mail>
+  <orbital-mail api-base={apiUrl} base-url={moduleBase}></orbital-mail>
 </AppLayout>
 
 <script is:inline type="module" src={`${moduleBase}/components/mail.js`}></script>

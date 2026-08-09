@@ -47,7 +47,7 @@ def overview(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.view')
+    auth.require_module_access()
     row = db.execute(text('''
         SELECT
             COUNT(*) AS campaigns,
@@ -71,7 +71,7 @@ def get_dispatch_preview(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.view')
+    auth.require_module_access()
     page = max(page, 1)
     page_size = min(max(page_size, 10), 500)
     result = dispatch_preview(db, auth.tenant_code, page, page_size, search)
@@ -86,7 +86,7 @@ def list_campaigns(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.view')
+    auth.require_module_access()
     rows = db.execute(text(CAMPAIGN_SELECT + '''
         WHERE tenant_code = :tenant_code
         ORDER BY NVL(updated_at, created_at) DESC, id DESC
@@ -100,7 +100,7 @@ def get_campaign(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.view')
+    auth.require_module_access()
     row = db.execute(text(CAMPAIGN_SELECT + '''
         WHERE id = :id AND tenant_code = :tenant_code
     '''), {'id': campaign_id, 'tenant_code': auth.tenant_code}).mappings().one_or_none()
@@ -115,7 +115,7 @@ def create_campaign(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.manage')
+    auth.require_module_access()
     values = payload.model_dump(mode='json')
     db.execute(text('''
         INSERT INTO email_campaign (
@@ -160,7 +160,7 @@ def update_campaign(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.manage')
+    auth.require_module_access()
     current = db.execute(text('''
         SELECT LOWER(status)
         FROM email_campaign
@@ -199,7 +199,7 @@ def delete_campaign(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.manage')
+    auth.require_module_access()
     current = db.execute(text('''
         SELECT LOWER(status)
         FROM email_campaign
@@ -223,7 +223,7 @@ def recipient_filters(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.view')
+    auth.require_module_access()
     associative = db.execute(text('''
         SELECT code, name FROM br_situacao_associativa
          WHERE active = 1 ORDER BY name
@@ -256,7 +256,7 @@ def campaign_recipients(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.view')
+    auth.require_module_access()
     ensure_campaign(db, campaign_id, auth.tenant_code)
     page = max(page, 1)
     page_size = min(max(page_size, 10), 200)
@@ -269,7 +269,7 @@ def get_campaign_queue(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.view')
+    auth.require_module_access()
     ensure_campaign(db, campaign_id, auth.tenant_code)
     return queue_summary(db, campaign_id, auth.tenant_code)
 
@@ -281,7 +281,7 @@ def start_queue_preparation(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.manage')
+    auth.require_module_access()
     ensure_campaign(db, campaign_id, auth.tenant_code)
     current = queue_summary(db, campaign_id, auth.tenant_code)
     if current['total'] > 0:
@@ -313,7 +313,7 @@ def prepare_queue_batch(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.manage')
+    auth.require_module_access()
     ensure_campaign(db, campaign_id, auth.tenant_code)
     before = queue_summary(db, campaign_id, auth.tenant_code)['total']
     insert_batch(
@@ -338,7 +338,7 @@ def delete_campaign_queue(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require('mail.manage')
+    auth.require_module_access()
     ensure_campaign(db, campaign_id, auth.tenant_code)
     removed = clear_pending_queue(db, campaign_id, auth.tenant_code)
     return {'removed': removed}

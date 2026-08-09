@@ -56,7 +56,7 @@ class OrbitalMail extends HTMLElement {
     this.redirecting = true;
     const orbitalHome = document.body?.dataset?.orbitalHomeUrl || '/';
     const loginUrl = new URL('/login', new URL(orbitalHome, window.location.origin).origin);
-      loginUrl.searchParams.set('return_to', `${window.location.pathname}${window.location.search}${window.location.hash}`);
+    loginUrl.searchParams.set('return_to', `${window.location.pathname}${window.location.search}${window.location.hash}`);
     window.location.replace(loginUrl.toString());
   }
 

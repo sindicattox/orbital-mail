@@ -115,7 +115,7 @@ def get_engine() -> Engine:
         pool_timeout=settings.oracle_pool_timeout_seconds,
         pool_recycle=settings.oracle_pool_recycle_seconds if settings.oracle_pool_recycle_seconds > 0 else -1,
         pool_reset_on_return="rollback",
-        echo=settings.db_sql_echo and settings.app_env == "development",
+        echo=settings.db_sql_echo,
     )
     _configure_oracle_engine(_engine, settings)
     return _engine

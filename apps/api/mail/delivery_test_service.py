@@ -266,7 +266,7 @@ def _send_smtp(payload: TestSendPayload) -> TestSendResponse:
 
 @router.post("/test-send", response_model=TestSendResponse)
 def send_test_email(payload: TestSendPayload, context: AuthContext = Depends(get_auth_context)) -> TestSendResponse:
-    context.require("mail.send")
+    context.require_module_access()
     settings = get_settings()
     if not settings.mail_send_enabled:
         raise HTTPException(

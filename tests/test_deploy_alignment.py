@@ -5,10 +5,8 @@ MAIL_ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = Path(os.environ.get("ORBITAL_APP_ROOT", MAIL_ROOT.parent / "orbital-app")).resolve()
 
 EXACT_COMMON = (
-    "deploy/CONTRACT.md",
     "deploy/local/setup.sh",
     "deploy/local/start.sh",
-    "deploy/local/start-web.sh",
     "deploy/remote/setup.sh",
     "deploy/remote/start.sh",
     "deploy/remote/wallet-upload.sh",
@@ -80,5 +78,18 @@ def test_common_setup_and_start_scripts_only_diverge_for_module_identity_or_work
     app_remote_web = read(APP_ROOT, "deploy/remote/setup-web.sh")
     expected_remote_web = app_remote_web.replace("WEB_PORT=4001", "WEB_PORT=4106").replace(
         'WEB_SERVICE="orbital-app-web.service"', 'WEB_SERVICE="orbital-mail-web.service"'
+    ).replace(
+        'cd "$WEB_DIR"\nrm -rf .astro dist',
+        'ln -sfn production "$WEB_DIR/config/runtime"\ncd "$WEB_DIR"\nrm -rf .astro dist',
     )
     assert read(MAIL_ROOT, "deploy/remote/setup-web.sh") == expected_remote_web
+
+
+def test_runtime_config_selection_is_deploy_responsibility():
+    contract = read(MAIL_ROOT, "deploy/CONTRACT.md")
+    assert "API e Web leem somente `config/runtime`" in contract
+    assert 'ln -sfn local "$API_DIR/config/runtime"' in read(MAIL_ROOT, "deploy/local/start-api.sh")
+    assert 'ln -sfn local "$WEB_DIR/config/runtime"' in read(MAIL_ROOT, "deploy/local/start-web.sh")
+    assert 'ln -sfn production "$API_DIR/config/runtime"' in read(MAIL_ROOT, "deploy/remote/start-api.sh")
+    assert 'ln -sfn production "$WEB_DIR/config/runtime"' in read(MAIL_ROOT, "deploy/remote/start-web.sh")
+

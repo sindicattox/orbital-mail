@@ -11,7 +11,9 @@
 - `test.sh` chama os testes secundários aplicáveis ao módulo.
 - Podem existir testes secundários com o padrão `test-*.sh`.
 - A API e a Web carregam suas próprias configurações em `apps/api/config` e `apps/web/config`.
-- O deploy copia normalmente os envs local e produção, quem vai decidir qual usar é a aplicação.
+- O deploy copia normalmente os envs local e produção.
+- O deploy seleciona `config/runtime`: local aponta para `local` e remoto aponta para `production`.
+- API e Web leem somente `config/runtime`; a aplicação não detecta ambiente por caminho, hostname ou condição de código.
 - O código de deploy deve ser simples, enxuto, legível e livre de arquivos, funções, comentários ou lógica sem uso.
 - Todos os scripts devem informar claramente no terminal o que estão fazendo e o resultado de cada etapa.
 

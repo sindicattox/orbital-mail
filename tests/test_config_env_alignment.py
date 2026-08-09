@@ -123,6 +123,7 @@ def test_env_file_tree_is_1x1():
     mail_files = {
         str(path.relative_to(MAIL_ROOT))
         for path in MAIL_ROOT.glob('apps/*/config/*/*.env')
+        if 'runtime' not in path.parts
     }
     assert app_files == set(CONFIG_FILES)
     assert mail_files == set(CONFIG_FILES)

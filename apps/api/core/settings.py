@@ -24,8 +24,8 @@ class Settings(BaseSettings):
 
     app_name: str = Field("Orbital Mail API", validation_alias="APP_NAME")
     app_service: str = Field("orbital-mail-api", validation_alias="APP_SERVICE")
-    app_env: str = Field("development", validation_alias="APP_ENV")
-    app_host: str = Field("0.0.0.0", validation_alias="APP_HOST")
+    app_env: str = Field("production", validation_alias="APP_ENV")
+    app_host: str = Field("127.0.0.1", validation_alias="APP_HOST")
     app_port: int = Field(8106, validation_alias="APP_PORT")
     cors_origins: Annotated[list[str], NoDecode] = Field([], validation_alias="APP_CORS_ORIGINS")
 
@@ -232,16 +232,18 @@ class Settings(BaseSettings):
             ]
             if self.auth_mode != "remote":
                 missing.append("AUTH_MODE=remote")
-            if any("localhost" in origin or "127.0.0.1" in origin for origin in self.cors_origins):
-                missing.append("APP_CORS_ORIGINS sem origens locais")
-            public_upload_url = self.mail_public_upload_url.strip().lower()
-            if not public_upload_url.startswith("https://"):
+            if any((urlparse(origin).hostname or "").lower() in {"localhost", "127.0.0.1", "::1"} for origin in self.cors_origins):
+                missing.append("APP_CORS_ORIGINS sem loopback direto")
+            public_upload_url = self.mail_public_upload_url.strip()
+            parsed_upload_url = urlparse(public_upload_url)
+            if parsed_upload_url.scheme.lower() != "https":
                 missing.append("EMAIL_UPLOAD_PUBLIC_URL com HTTPS público")
-            if "localhost" in public_upload_url or "127.0.0.1" in public_upload_url:
+            if (parsed_upload_url.hostname or "").lower() in {"localhost", "127.0.0.1", "::1"}:
                 missing.append("EMAIL_UPLOAD_PUBLIC_URL sem endereço local")
             if missing:
                 raise ValueError(f"Configuração de produção incompleta: {', '.join(missing)}.")
         return self
+
 
 
 @lru_cache

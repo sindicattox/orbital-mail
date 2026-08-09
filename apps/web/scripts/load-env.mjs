@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const configFiles = ['app.env', 'services.env'];
 
@@ -23,8 +23,7 @@ function parseEnvFile(filePath) {
 
 export function loadConfigEnv() {
     const webRoot = fileURLToPath(new URL('..', import.meta.url));
-    const context = webRoot.includes('/home/daniel/') ? 'local' : 'production';
-    const directory = path.join(webRoot, 'config', context);
+    const directory = path.join(webRoot, 'config', 'runtime');
     const values = {};
     const origins = {};
     for (const name of configFiles) {

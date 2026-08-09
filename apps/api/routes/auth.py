@@ -11,5 +11,9 @@ async def current_context(auth: AuthContext = Depends(get_auth_context)) -> dict
         "user_id": auth.user_id,
         "tenant_code": auth.tenant_code,
         "is_admin": auth.is_admin,
-        "permissions": sorted(auth.permissions),
+        "is_dev": auth.is_dev,
+        "permissions": [
+            {"page_alias": page_alias, "action_code": action_code}
+            for page_alias, action_code in sorted(auth.permissions)
+        ],
     }

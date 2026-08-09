@@ -436,7 +436,7 @@ def _run_job(campaign_id: int, tenant_code: str, provider: str, workers: int, st
 
 @router.get("/test-loop/allowed-emails")
 def allowed_test_emails(auth: AuthContext = Depends(get_auth_context)):
-    auth.require("mail.send")
+    auth.require_module_access()
     emails = _load_test_emails()
     return {
         "file": TEST_EMAILS_FILE.name,
@@ -447,7 +447,7 @@ def allowed_test_emails(auth: AuthContext = Depends(get_auth_context)):
 
 @router.post("/test-loop/start", response_model=LoopTestStartResponse, status_code=status.HTTP_202_ACCEPTED)
 def start_loop_test(payload: LoopTestStart, db: Session = Depends(get_db), auth: AuthContext = Depends(get_auth_context)):
-    auth.require("mail.send")
+    auth.require_module_access()
     settings = get_settings()
     if not settings.mail_send_enabled:
         raise HTTPException(status_code=409, detail="Envio bloqueado. Configure EMAIL_SEND_ENABLED=true.")
@@ -506,7 +506,7 @@ def start_loop_test(payload: LoopTestStart, db: Session = Depends(get_db), auth:
 
 @router.get("/test-loop/{campaign_id}/status")
 def loop_test_status(campaign_id: int, db: Session = Depends(get_db), auth: AuthContext = Depends(get_auth_context)):
-    auth.require("mail.view")
+    auth.require_module_access()
     row = db.execute(text("""
         SELECT c.id, c.internal_name, c.status,
                COUNT(q.id) AS total,
@@ -550,7 +550,7 @@ def loop_test_status(campaign_id: int, db: Session = Depends(get_db), auth: Auth
 
 @router.post("/test-loop/{campaign_id}/stop")
 def stop_loop_test(campaign_id: int, auth: AuthContext = Depends(get_auth_context)):
-    auth.require("mail.send")
+    auth.require_module_access()
     with _manager_lock:
         event = _stop_events.get(campaign_id)
     if event is None:

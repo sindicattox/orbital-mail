@@ -7,7 +7,7 @@ from dotenv import dotenv_values
 
 API_DIR = Path(__file__).resolve().parents[1]
 CONFIG_FILES = ("app.env", "auth.env", "database.env", "services.env")
-CONFIG_CONTEXT = "local" if "/home/daniel/" in API_DIR.as_posix() else "production"
+CONFIG_CONTEXT = "runtime"
 CONFIG_DIR = API_DIR / "config" / CONFIG_CONTEXT
 
 
@@ -17,8 +17,8 @@ def get_config_context() -> str:
 
 def get_config_files(context: str | None = None) -> tuple[Path, ...]:
     selected = context or CONFIG_CONTEXT
-    if selected not in {"local", "production"}:
-        raise RuntimeError("Contexto de configuração deve ser local ou production.")
+    if selected not in {"runtime", "local", "production"}:
+        raise RuntimeError("Contexto de configuração deve ser runtime, local ou production.")
     directory = API_DIR / "config" / selected
     files = tuple(directory / name for name in CONFIG_FILES)
     missing = [str(path) for path in files if not path.is_file()]

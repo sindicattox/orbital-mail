@@ -23,7 +23,7 @@ async def upload_campaign_image(
     file: UploadFile = File(...),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require("mail.manage")
+    auth.require_module_access()
 
     extension = ALLOWED_TYPES.get(file.content_type or "")
     if extension is None:

@@ -10,6 +10,7 @@ WEB_DIR="$ROOT_DIR/apps/web"
     exit 1
 }
 
+ln -sfn local "$WEB_DIR/config/runtime"
 cd "$WEB_DIR"
 echo "Iniciando Web local..."
 exec npm run dev

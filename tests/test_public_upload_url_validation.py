@@ -48,6 +48,11 @@ def test_production_accepts_public_https_canonical_route():
     assert settings.mail_public_upload_url == "https://admin.sindicatto.com/orbital-mail/api/mail/uploads"
 
 
+
+def test_production_runtime_accepts_admin_localhost_gateway():
+    settings = _production_settings("https://admin.localhost/orbital-mail/api/mail/uploads")
+    assert settings.mail_public_upload_url == "https://admin.localhost/orbital-mail/api/mail/uploads"
+
 def test_production_rejects_localhost_even_with_canonical_route():
     with pytest.raises(ValidationError, match="EMAIL_UPLOAD_PUBLIC_URL sem endereço local"):
         _production_settings("https://127.0.0.1/orbital-mail/api/mail/uploads")

@@ -53,7 +53,7 @@ def test_remote_forwards_bearer_and_uses_orbital_context(monkeypatch):
 
         @staticmethod
         def json():
-            return {"user_id": 91, "tenant_code": "Asaclub", "is_admin": True, "permissions": ["mail.view"]}
+            return {"user_id": 91, "tenant_code": "Asaclub", "is_admin": True, "is_dev": False, "permissions": [{"page_alias": "orbital-mail-home", "action_code": "access_page"}]}
 
     class FakeClient:
         def __init__(self, **_kwargs):
@@ -75,3 +75,5 @@ def test_remote_forwards_bearer_and_uses_orbital_context(monkeypatch):
     assert context.user_id == 91
     assert context.tenant_code == "asaclub"
     assert context.is_admin is True
+    assert context.is_dev is False
+    context.require_module_access()

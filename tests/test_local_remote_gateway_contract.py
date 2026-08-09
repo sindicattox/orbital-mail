@@ -63,3 +63,50 @@ def test_remote_web_health_check_uses_same_module_base():
     source = read("deploy/remote/start-web.sh")
     assert "http://127.0.0.1:4106/orbital-mail/" in source
     assert "http://127.0.0.1:4106/ >/dev/null" not in source
+
+
+def _env_map(rel: str) -> dict[str, str]:
+    result = {}
+    for line in read(rel).splitlines():
+        if line:
+            key, value = line.split("=", 1)
+            result[key] = value
+    return result
+
+
+def test_runtime_behavior_config_is_identical_local_and_production():
+    assert read("apps/api/config/local/app.env") == read("apps/api/config/production/app.env")
+    assert read("apps/api/config/local/auth.env") == read("apps/api/config/production/auth.env")
+    assert read("apps/web/config/local/app.env") == read("apps/web/config/production/app.env")
+    assert read("apps/web/config/local/services.env") == read("apps/web/config/production/services.env")
+
+    local_db = _env_map("apps/api/config/local/database.env")
+    production_db = _env_map("apps/api/config/production/database.env")
+    assert {k for k in local_db if local_db[k] != production_db[k]} == {"ORACLE_WALLET_DIR"}
+
+    local_services = _env_map("apps/api/config/local/services.env")
+    production_services = _env_map("apps/api/config/production/services.env")
+    assert {k for k in local_services if local_services[k] != production_services[k]} == {
+        "EMAIL_UPLOAD_DIR", "EMAIL_UPLOAD_PUBLIC_URL", "MAIL_PUBLIC_URL"
+    }
+
+
+def test_application_never_detects_local_or_remote_from_filesystem_path():
+    api_loader = read("apps/api/core/load_env.py")
+    web_loader = read("apps/web/scripts/load-env.mjs")
+    assert 'CONFIG_CONTEXT = "runtime"' in api_loader
+    assert "path.join(webRoot, 'config', 'runtime')" in web_loader
+    assert "/home/daniel/" not in api_loader
+    assert "/home/daniel/" not in web_loader
+    assert "includes('/home/" not in web_loader
+
+
+def test_local_runs_with_production_runtime_mode_and_loopback_bind():
+    local_api = _env_map("apps/api/config/local/app.env")
+    production_api = _env_map("apps/api/config/production/app.env")
+    local_web = _env_map("apps/web/config/local/app.env")
+    production_web = _env_map("apps/web/config/production/app.env")
+    assert local_api["APP_ENV"] == production_api["APP_ENV"] == "production"
+    assert local_api["APP_HOST"] == production_api["APP_HOST"] == "127.0.0.1"
+    assert local_web["APP_HOST"] == production_web["APP_HOST"] == "127.0.0.1"
+
