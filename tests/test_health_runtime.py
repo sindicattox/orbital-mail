@@ -50,9 +50,9 @@ def test_readiness_returns_503_without_leaking_error(monkeypatch):
 
 def test_cors_rejects_json_format():
     with pytest.raises(ValueError, match="CSV simples"):
-        Settings(_env_file=None, cors_origins='["http://localhost:4101"]')
+        Settings(_env_file=None, APP_CORS_ORIGINS='["http://localhost:4101"]')
 
 
 def test_production_requires_remote_auth_and_oracle():
     with pytest.raises(ValueError, match="AUTH_MODE deve ser remote"):
-        Settings(_env_file=None, app_env="production", auth_mode="disabled")
+        Settings(_env_file=None, APP_ENV="production", AUTH_MODE="disabled")

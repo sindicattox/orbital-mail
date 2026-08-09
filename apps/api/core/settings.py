@@ -1,4 +1,5 @@
 from functools import lru_cache
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlparse, urlunparse
@@ -13,6 +14,19 @@ load_config_environment(overwrite=False)
 API_DIR = Path(__file__).resolve().parents[1]
 PRODUCTION_ENVS = {"production", "prod", "remote"}
 PUBLIC_UPLOAD_PATH = "/orbital-mail/api/mail/uploads"
+MAIL_PUBLIC_PATH = "/orbital-mail"
+
+
+def _is_local_hostname(hostname: str | None) -> bool:
+    normalized = str(hostname or "").strip().lower().rstrip(".")
+    if not normalized:
+        return False
+    if normalized == "localhost" or normalized.endswith(".localhost"):
+        return True
+    try:
+        return ip_address(normalized).is_loopback
+    except ValueError:
+        return False
 
 
 class Settings(BaseSettings):
@@ -24,8 +38,8 @@ class Settings(BaseSettings):
 
     app_name: str = Field("Orbital Mail API", validation_alias="APP_NAME")
     app_service: str = Field("orbital-mail-api", validation_alias="APP_SERVICE")
-    app_env: str = Field("production", validation_alias="APP_ENV")
-    app_host: str = Field("127.0.0.1", validation_alias="APP_HOST")
+    app_env: str = Field("development", validation_alias="APP_ENV")
+    app_host: str = Field("0.0.0.0", validation_alias="APP_HOST")
     app_port: int = Field(8106, validation_alias="APP_PORT")
     cors_origins: Annotated[list[str], NoDecode] = Field([], validation_alias="APP_CORS_ORIGINS")
 
@@ -190,6 +204,26 @@ class Settings(BaseSettings):
             )
         return urlunparse((parsed.scheme, parsed.netloc, PUBLIC_UPLOAD_PATH, "", "", ""))
 
+    @field_validator("mail_public_url")
+    @classmethod
+    def validate_mail_public_url(cls, value: str) -> str:
+        raw = str(value or "").strip().rstrip("/")
+        parsed = urlparse(raw)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError(
+                "MAIL_PUBLIC_URL deve ser uma URL absoluta HTTP/HTTPS, "
+                f"terminando em {MAIL_PUBLIC_PATH}."
+            )
+        if parsed.params or parsed.query or parsed.fragment:
+            raise ValueError("MAIL_PUBLIC_URL não pode conter parâmetros, query string ou fragmento.")
+        if parsed.path.rstrip("/") != MAIL_PUBLIC_PATH:
+            actual_path = parsed.path.rstrip("/") or "/"
+            raise ValueError(
+                f"MAIL_PUBLIC_URL usa caminho incompatível: {actual_path}. "
+                f"Use exatamente {MAIL_PUBLIC_PATH}."
+            )
+        return urlunparse((parsed.scheme, parsed.netloc, MAIL_PUBLIC_PATH, "", "", ""))
+
     @field_validator("smtp_security")
     @classmethod
     def validate_smtp_security(cls, value: str) -> str:
@@ -218,6 +252,13 @@ class Settings(BaseSettings):
         if not str(self.auth_context_url or "").strip():
             raise ValueError("AUTH_CONTEXT_URL é obrigatório no orbital-mail.")
 
+        upload_url = urlparse(self.mail_public_upload_url)
+        public_url = urlparse(self.mail_public_url)
+        if (upload_url.scheme, upload_url.netloc) != (public_url.scheme, public_url.netloc):
+            raise ValueError(
+                "EMAIL_UPLOAD_PUBLIC_URL e MAIL_PUBLIC_URL devem usar o mesmo protocolo e domínio."
+            )
+
         if self.app_env.strip().lower() in PRODUCTION_ENVS:
             missing = [
                 name
@@ -232,14 +273,18 @@ class Settings(BaseSettings):
             ]
             if self.auth_mode != "remote":
                 missing.append("AUTH_MODE=remote")
-            if any((urlparse(origin).hostname or "").lower() in {"localhost", "127.0.0.1", "::1"} for origin in self.cors_origins):
+            if any(_is_local_hostname(urlparse(origin).hostname) for origin in self.cors_origins):
                 missing.append("APP_CORS_ORIGINS sem loopback direto")
-            public_upload_url = self.mail_public_upload_url.strip()
-            parsed_upload_url = urlparse(public_upload_url)
-            if parsed_upload_url.scheme.lower() != "https":
+            if upload_url.scheme.lower() != "https":
                 missing.append("EMAIL_UPLOAD_PUBLIC_URL com HTTPS público")
-            if (parsed_upload_url.hostname or "").lower() in {"localhost", "127.0.0.1", "::1"}:
+            if _is_local_hostname(upload_url.hostname):
                 missing.append("EMAIL_UPLOAD_PUBLIC_URL sem endereço local")
+            if public_url.scheme.lower() != "https":
+                missing.append("MAIL_PUBLIC_URL com HTTPS público")
+            if _is_local_hostname(public_url.hostname):
+                missing.append("MAIL_PUBLIC_URL sem endereço local")
+            if not str(self.mail_unsubscribe_secret or "").strip():
+                missing.append("MAIL_UNSUBSCRIBE_SECRET")
             if missing:
                 raise ValueError(f"Configuração de produção incompleta: {', '.join(missing)}.")
         return self

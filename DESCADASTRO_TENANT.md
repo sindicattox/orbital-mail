@@ -1,61 +1,55 @@
-# Descadastro por destinatário e por tenant
+# Descadastro por destinatário e tenant
 
-## Escopo desta entrega
-
-Implementação isolada do descadastro. Não altera campanhas, editor, autenticação, fila, filtros ou deploy.
-
-## Funcionamento
+## Contrato
 
 1. O worker gera um token HMAC com e-mail, tenant e campanha.
-2. O rodapé recebe um link público `/unsubscribe?token=...`.
-3. A página mostra o e-mail mascarado e o tenant e pede confirmação.
-4. A confirmação grava ou atualiza `EMAIL_BLACKLIST` somente para o `TENANT_CODE` do token.
+2. O rodapé aponta para /orbital-mail/unsubscribe?token=....
+3. A página pública mostra o e-mail mascarado e pede confirmação.
+4. A confirmação grava ou atualiza EMAIL_BLACKLIST somente no tenant do token.
 5. Cliques repetidos são idempotentes.
-6. SMTP e SMTP2GO recebem `List-Unsubscribe` e `List-Unsubscribe-Post` para descadastro de um clique.
+6. SMTP e SMTP2GO recebem List-Unsubscribe e List-Unsubscribe-Post.
 
-## Segurança
+O tenant nunca é aceito livremente do navegador. Alterar e-mail, tenant ou campanha invalida a assinatura. O token não expira para manter links antigos funcionais; por isso a chave deve ser estável.
 
-- O tenant não é recebido livremente do navegador.
-- Alterar e-mail, tenant ou campanha invalida a assinatura.
-- O token não expira para que links antigos de descadastro continuem válidos.
-- A chave não fica no código nem no banco.
+## URLs por ambiente
 
-## Configuração local
+Local:
 
-Adicionar em `apps/api/.env`:
+~~~env
+MAIL_PUBLIC_URL=https://admin.localhost/orbital-mail
+EMAIL_UPLOAD_PUBLIC_URL=https://admin.localhost/orbital-mail/api/mail/uploads
+~~~
 
-```env
-MAIL_PUBLIC_URL=http://127.0.0.1:4106
-MAIL_UNSUBSCRIBE_SECRET=gere-uma-chave-longa-e-aleatoria
-```
+Produção:
 
-Exemplo para gerar a chave:
+~~~env
+MAIL_PUBLIC_URL=https://admin.sindicatto.com/orbital-mail
+EMAIL_UPLOAD_PUBLIC_URL=https://admin.sindicatto.com/orbital-mail/api/mail/uploads
+~~~
 
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
+Apenas o domínio muda. O startup exige que protocolo e domínio das duas variáveis sejam iguais.
 
-## Configuração remota futura
+## Chave
 
-```env
-MAIL_PUBLIC_URL=https://orbital-mail.asaclub.org.br
-MAIL_UNSUBSCRIBE_SECRET=CHAVE_FORTE_DO_AMBIENTE
-```
+~~~env
+MAIL_UNSUBSCRIBE_SECRET=CHAVE_FORTE_E_ESTAVEL_DO_AMBIENTE
+~~~
+
+Gere com:
+
+~~~bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+~~~
+
+Produção não inicia sem a chave. Uma troca invalida todos os links emitidos com a chave anterior.
 
 ## Banco
 
-Esta implementação usa as colunas de `EMAIL_BLACKLIST` já previstas em `database/oracle/002_email_delivery_events.sql`:
+O descadastro usa as colunas de EMAIL_BLACKLIST previstas em database/oracle/002_email_delivery_events.sql:
 
-- `TENANT_CODE`
-- `SOURCE`
-- `PERMANENT`
-- `UPDATED_AT`
+- TENANT_CODE
+- SOURCE
+- PERMANENT
+- UPDATED_AT
 
-O descadastro grava `SOURCE='unsubscribe'` e `PERMANENT=1`.
-
-## Testes
-
-- Testes focados: 28 aprovados.
-- Suíte completa: 1092 aprovados e 5 falhas preexistentes no ZIP original, ligadas a arquivos antigos de deploy/autenticação.
-- Compilação Python: aprovada.
-- Build web não pôde ser executado neste ambiente porque o registry interno retornou 404 para `zwitch-2.0.4`; o arquivo Astro foi validado pelos testes de contrato.
+A gravação usa SOURCE='unsubscribe' e PERMANENT=1, sempre com correspondência estrita de tenant.

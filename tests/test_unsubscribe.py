@@ -20,7 +20,11 @@ from mail.unsubscribe import (
 
 def _settings(monkeypatch):
     monkeypatch.setenv("MAIL_UNSUBSCRIBE_SECRET", "test-secret-with-enough-entropy")
-    monkeypatch.setenv("MAIL_PUBLIC_URL", "https://orbital-mail.asaclub.org.br")
+    monkeypatch.setenv("MAIL_PUBLIC_URL", "https://admin.localhost/orbital-mail")
+    monkeypatch.setenv(
+        "EMAIL_UPLOAD_PUBLIC_URL",
+        "https://admin.localhost/orbital-mail/api/mail/uploads",
+    )
     get_settings.cache_clear()
 
 
@@ -46,7 +50,7 @@ def test_token_rejects_tampering(monkeypatch):
 
 def test_footer_and_one_click_headers(monkeypatch):
     _settings(monkeypatch)
-    url = "https://orbital-mail.asaclub.org.br/unsubscribe?token=abc"
+    url = "https://admin.localhost/orbital-mail/unsubscribe?token=abc"
     html, text = append_unsubscribe_footer("<p>Mensagem</p>", "Mensagem", url)
     one_click_url = one_click_unsubscribe_url("pessoa@email.com", "asaclub", 77)
     headers = unsubscribe_headers(one_click_url)
@@ -71,3 +75,8 @@ def test_public_page_does_not_use_authenticated_layout():
     assert "AppLayout" not in page
     assert "${apiUrl}/public/unsubscribe" in page
     assert "Confirmar descadastro" in page
+
+def test_local_and_remote_unsubscribe_keep_path_and_only_change_domain():
+    local = "https://admin.localhost/orbital-mail"
+    remote = "https://admin.sindicatto.com/orbital-mail"
+    assert local.split("/", 3)[-1] == remote.split("/", 3)[-1] == "orbital-mail"

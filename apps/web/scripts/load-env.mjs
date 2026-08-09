@@ -23,7 +23,8 @@ function parseEnvFile(filePath) {
 
 export function loadConfigEnv() {
     const webRoot = fileURLToPath(new URL('..', import.meta.url));
-    const directory = path.join(webRoot, 'config', 'runtime');
+    const context = webRoot.includes('/home/daniel/') ? 'local' : 'production';
+    const directory = path.join(webRoot, 'config', context);
     const values = {};
     const origins = {};
     for (const name of configFiles) {

@@ -29,7 +29,6 @@ WEB_SERVICE="orbital-mail-web.service"
 sudo systemctl stop "$WEB_SERVICE" 2>/dev/null || true
 sudo fuser -k "${WEB_PORT}/tcp" >/dev/null 2>&1 || true
 
-ln -sfn production "$WEB_DIR/config/runtime"
 cd "$WEB_DIR"
 rm -rf .astro dist
 npm ci

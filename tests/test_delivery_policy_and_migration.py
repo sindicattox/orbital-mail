@@ -74,5 +74,8 @@ def test_migration_removes_duplicate_table_and_adds_delivery_fields():
 
 
 def test_private_test_addresses_are_not_packaged():
-    assert not (API / ".emails_para_teste").exists()
+    deploy = (ROOT / "deploy/remote/setup.sh").read_text(encoding="utf-8")
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert "--exclude='apps/api/.emails_para_teste'" in deploy
+    assert "apps/api/.emails_para_teste" in gitignore
     assert (API / ".emails_para_teste.example").exists()

@@ -65,9 +65,13 @@ def test_remote_forwards_bearer_and_uses_orbital_context(monkeypatch):
         async def __aexit__(self, *_args):
             return None
 
-        async def get(self, url, headers, cookies):
+        async def get(self, url, headers, cookies, params):
             assert url == settings.auth_context_url
             assert headers == {"Authorization": "Bearer token-123"}
+            assert params == {
+                "page_alias": "orbital-mail-home",
+                "action_code": "access_page",
+            }
             return FakeResponse()
 
     monkeypatch.setattr(auth_core.httpx, "AsyncClient", FakeClient)

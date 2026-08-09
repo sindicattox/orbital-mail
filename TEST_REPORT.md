@@ -1,29 +1,58 @@
-# Relatório de testes
+# Relatório de validação
 
-- `python3 -m compileall -q apps/api`: aprovado.
-- `python3 -m pytest -q`: **1076 testes aprovados**.
-- `node --check` no Web Component público, mensagens compartilhadas, scripts Astro, editor e autenticação: aprovado.
-- Tratamento global de erro inesperado com JSON e CORS: validado em runtime.
-- `bash -n` em todos os scripts de deploy local e remoto: aprovado.
-- `package-lock.json` atualizado com `@orbital/ui`: aprovado.
+Data: 2026-08-09
+
+## Orbital Mail
+
+- Python compileall: aprovado.
+- Pytest: 1123 testes aprovados.
+- Astro check: 0 erros, 0 warnings e 16 hints.
+- Astro build SSR/Node: aprovado.
+- Sintaxe dos scripts deploy/local e deploy/remote: aprovada.
+- git diff --check: aprovado.
+- Config local: development, auth remote, Oracle e chave de descadastro válidos.
+- Config produção: production, auth remote, Oracle, URLs HTTPS públicas e chave de descadastro válidos.
+
+## Integração local
+
+Com o Orbital App ativo:
+
+- API Mail /api/health: HTTP 200.
+- Web Mail /orbital-mail/: HTTP 200.
+- Contexto sem token: HTTP 401.
+- Gateway https://admin.localhost/orbital-mail/: HTTP 200.
+- Contexto pelo gateway sem token: HTTP 401.
+- Os processos temporários do Mail foram encerrados após o smoke test.
+
+## Orbital App
+
+- Testes focados de contexto de módulo, MenuService e permissões Oracle: 10 aprovados.
+- Build da Web: aprovado.
+- Suíte ampla da API: 281 aprovados e 8 falhas fora do alinhamento do Mail.
+
+As oito falhas amplas já existentes envolvem credenciais do teste de login real, nota clonada, uso de SYSTIMESTAMP, auditorias de scripts de pool ausentes e um teste dependente do diretório de execução. Os testes modificados pela integração Mail/App estão verdes.
 
 ## Contratos cobertos
 
-- barra standalone fornecida por `@orbital/ui`, sem cópia local;
-- Web Component público `<orbital-mail>` reutilizado pela página standalone e pelo `orbital-app`;
-- API própria configurável por `api-base` e rotas standalone configuráveis por `base-url`;
-- sessão por cookie, credenciais incluídas e início do SSO em respostas `401`;
-- evento público `orbital-module-error` compatível com o carregador do `orbital-app`;
-- fallback standalone pelos três campos `AUTH_DEV_*`;
-- sessão remota assinada com tenant recebido do Orbital;
-- isolamento físico das imagens por tenant;
-- rota pública canônica `/api/mail/uploads/{tenant}/{arquivo}`;
-- rejeição no startup da configuração incorreta `/uploads/mail`;
-- deploy remoto padronizado, sem envio automático dos arquivos `.env`;
-- caminho remoto `/home/ubuntu/apps/orbital/orbital-mail` nos serviços e scripts;
-- arquivo privado `.emails_para_teste` ausente do pacote;
-- mensagens de validação, banco, rede e API normalizadas sem expor objetos ou erros técnicos ao usuário.
+- mesma árvore local/production do Orbital App;
+- mesmos loaders de configuração do Orbital App;
+- deploy local/remoto alinhado e sem config/runtime;
+- autenticação remota obrigatória nos dois ambientes;
+- autorização orbital-mail-home/access_page centralizada no Orbital App;
+- tenant recebido somente do contexto autenticado;
+- lista privada .emails_para_teste excluída do rsync;
+- imagem pública com rota canônica e isolamento físico por tenant;
+- imagem e descadastro no mesmo protocolo/domínio;
+- caminhos públicos idênticos local/remoto, variando o domínio;
+- chave HMAC de descadastro obrigatória em produção;
+- smoke test remoto de imagem compatível com config/{local,production}.
 
-## Validação do build
+## Validações ainda dependentes do servidor
 
-O `npm ci` não pôde ser concluído neste ambiente porque o registry configurado respondeu HTTP 503. Por isso, `astro check` e `astro build` não foram executados aqui. Os scripts `deploy/local/test.sh` e `deploy/remote/setup-web.sh` executam obrigatoriamente ambos e interrompem o processo se houver erro.
+Antes do go-live definitivo:
+
+1. executar deploy/remote/setup.sh;
+2. executar deploy/remote/test.sh;
+3. autenticar um usuário real com a permissão orbital-mail-home/access_page;
+4. executar deploy/remote/test-public-image.sh com um tenant real;
+5. enviar uma mensagem controlada e testar imagem e os dois links de descadastro.

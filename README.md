@@ -1,159 +1,157 @@
 # Orbital Mail
 
-Módulo independente de campanhas e envio de e-mails do ecossistema Orbital.
+Módulo de campanhas e envio de e-mails do ecossistema Orbital.
 
-## Tenant e autenticação
+O orbital-app é a fonte de verdade para deploy, configuração, sessão, tenant e autorização. O Mail mantém a mesma estrutura apps/{api,web}/config/{local,production} e os mesmos scripts deploy/{local,remote}. As diferenças se limitam ao nome do serviço, portas, workers e variáveis próprias de e-mail.
 
-O `orbital-mail` possui dois modos explícitos. Não existe `MAIL_TENANT_CODE` e o frontend nunca escolhe ou envia o tenant.
+## Ambientes e configuração
 
-### 1. Standalone local
+A seleção de ambiente é idêntica à do Orbital App:
 
-Use para desenvolver e testar o Mail sem iniciar o `orbital-app`:
+- sob /home/daniel/, API e Web carregam config/local;
+- nos demais caminhos, carregam config/production;
+- não existe config/runtime, symlink de seleção ou segundo loader;
+- os envs reais contêm credenciais e permanecem fora do Git.
 
-```env
-AUTH_MODE=disabled
-AUTH_DEV_TENANT_CODE=anpprev
-AUTH_DEV_USER_ID=1
-AUTH_DEV_IS_ADMIN=true
-```
+Arquivos obrigatórios da API:
 
-Nesse modo, os três valores acima formam o contexto técnico local. Nenhuma chamada de autenticação é feita ao Orbital.
+~~~text
+apps/api/config/local/app.env
+apps/api/config/local/auth.env
+apps/api/config/local/database.env
+apps/api/config/local/services.env
+apps/api/config/production/app.env
+apps/api/config/production/auth.env
+apps/api/config/production/database.env
+apps/api/config/production/services.env
+~~~
 
-### 2. Conectado ao Orbital
+A Web segue a mesma estrutura com app.env e services.env.
 
-```env
+Local mantém o padrão do App (APP_ENV=development, bind 0.0.0.0). Produção usa APP_ENV=production e bind 127.0.0.1. O banco é Oracle nos dois ambientes; apenas credenciais, wallet e caminhos físicos próprios do servidor podem variar.
+
+## Autenticação e autorização
+
+Não existe modo standalone ou tenant configurado no frontend. Local e produção usam obrigatoriamente:
+
+~~~env
+AUTH_CONTEXT_URL=http://127.0.0.1:8001/auth/context/module
 AUTH_MODE=remote
-AUTH_AUTHORIZE_URL=http://127.0.0.1:4001/auth/sso/authorize
-AUTH_TOKEN_URL=http://127.0.0.1:8001/auth/sso/token
-AUTH_CLIENT_ID=email-app
-AUTH_CLIENT_SECRET=...
-AUTH_REDIRECT_URI=http://127.0.0.1:8106/api/mail/auth/callback
-AUTH_WEB_URL=http://127.0.0.1:4106/
-AUTH_SESSION_SECRET=...
-AUTH_COOKIE_SECURE=false
-```
+AUTH_TIMEOUT_SECONDS=5
+~~~
 
-O Mail usa o SSO já existente no `orbital-app`:
+Fluxo:
 
-1. a Web do Mail recebe `401` quando ainda não há sessão;
-2. o Mail redireciona para `/auth/sso/authorize` do Orbital;
-3. o Orbital devolve uma identidade temporária com `member_id`, `tenant_code`, perfil e flags;
-4. o Mail grava essa identidade em cookie próprio, assinado e `HttpOnly`;
-5. campanhas, filas, destinatários e uploads usam somente `auth.tenant_code`.
+1. o usuário entra pelo Orbital App;
+2. a Web do Mail reutiliza orbitalSession no mesmo domínio e envia o Bearer token;
+3. a API do Mail consulta o contexto no Orbital App;
+4. o Orbital App valida orbital-mail-home/access_page pelo MenuService;
+5. o Mail usa exclusivamente tenant_code, usuário e flags devolvidos pelo App.
 
-`AUTH_DEV_TENANT_CODE`, `AUTH_DEV_USER_ID` e `AUTH_DEV_IS_ADMIN` são ignorados em `AUTH_MODE=remote`.
+Sem token, a resposta é 401. Sem permissão do módulo, é 403. Admin não ignora a permissão do perfil; desenvolvedor continua limitado aos módulos habilitados para o tenant.
 
-O `AUTH_REDIRECT_URI` deve ser o callback do Mail já autorizado para o cliente `email-app`. Isso é configuração de integração; nenhuma alteração de código no `orbital-app` faz parte desta entrega.
+## Gateway público
 
-## Imagens públicas multi-tenant
+O navegador nunca usa diretamente as portas 4106 ou 8106. API, páginas, imagens e descadastro passam pelo mesmo gateway:
 
-```env
-EMAIL_UPLOAD_DIR=/home/daniel/storage/tenants/{tenant}/media/email_campaign
-EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/api/mail/uploads
-```
+~~~text
+/orbital-mail/...
+/orbital-mail/api/mail/...
+~~~
 
-O marcador `{tenant}` é resolvido pelo contexto atual:
+Exemplo de proxy:
 
-```text
-/home/daniel/storage/tenants/anpprev/media/email_campaign/<uuid>.png
-```
-
-A URL inserida no HTML do e-mail é pública e não exige login:
-
-```text
-http://127.0.0.1:8106/api/mail/uploads/anpprev/<uuid>.png
-```
-
-Em produção, `EMAIL_UPLOAD_PUBLIC_URL` precisa usar HTTPS público.
-
-O caminho público é fixo e canônico:
-
-```text
-/api/mail/uploads
-```
-
-A configuração antiga/incorreta abaixo é rejeitada no startup para não gravar imagens quebradas no HTML:
-
-```env
-EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/uploads/mail
-```
-
-Configurações corretas:
-
-```env
-# Local
-EMAIL_UPLOAD_PUBLIC_URL=http://127.0.0.1:8106/api/mail/uploads
-
-# Produção
-EMAIL_UPLOAD_PUBLIC_URL=https://email.seudominio.org/api/mail/uploads
-```
-
-Não é CORS: a imagem é um `GET` público. Um `404` em `/uploads/mail/...` indica apenas caminho público incompatível.
-
-### Smoke test de produção
-
-Depois que Nginx, HTTPS, API e storage estiverem ativos, execute no servidor:
-
-```bash
-cd /home/ubuntu/apps/orbital-mail
-./deploy/remote/test-public-image.sh anpprev
-```
-
-O teste cria uma imagem PNG temporária no storage do tenant, acessa a URL HTTPS pública, confere HTTP 200, `Content-Type: image/png` e os bytes retornados, e remove o arquivo ao terminar.
-
-O Nginx deve encaminhar a rota canônica para a API, sem expor a pasta com `alias`:
-
-```nginx
-location /api/mail/ {
+~~~nginx
+location /orbital-mail/api/mail/ {
     proxy_pass http://127.0.0.1:8106/api/mail/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 }
-```
+~~~
 
-## Barra e incorporação no Orbital
+A Web escuta em 4106; a API, em 8106.
 
-As páginas standalone usam diretamente o `OrbitalTopBar` publicado por `@orbital/ui`. O Mail não mantém uma cópia própria da barra.
+## Imagens públicas multi-tenant
 
-A entrada pública para incorporação é:
+A estrutura física é a mesma nos dois ambientes:
 
-```text
-/orbital-mail/components/mail.js
-<orbital-mail>
-```
+~~~text
+<storage>/tenants/{tenant}/media/email_campaign/<uuid>.<extensão>
+~~~
 
-Configuração no `orbital-app`, pelo carregador genérico já existente:
+Configuração local:
 
-```astro
-<ModuleActionButton
-    label="Mail"
-    icon="mail"
-    moduleTitle="Campanhas de e-mail"
-    moduleSrc="/orbital-mail/components/mail.js"
-    moduleElement="orbital-mail"
-    moduleAttributes='{"api-base":"/api/mail","base-url":"/orbital-mail"}'
-/>
-```
+~~~env
+EMAIL_UPLOAD_DIR=/home/daniel/storage/tenants/{tenant}/media/email_campaign
+EMAIL_UPLOAD_PUBLIC_URL=https://admin.localhost/orbital-mail/api/mail/uploads
+MAIL_PUBLIC_URL=https://admin.localhost/orbital-mail
+~~~
 
-O componente não renderiza outra barra dentro do `orbital-app`. Ele reutiliza a mesma gestão de campanhas da página standalone, chama somente a API própria do Mail e mantém o SSO por cookie assinado.
+Configuração remota:
 
-## Deploy remoto
+~~~env
+EMAIL_UPLOAD_DIR=/home/ubuntu/storage/tenants/{tenant}/media/email_campaign
+EMAIL_UPLOAD_PUBLIC_URL=https://admin.sindicatto.com/orbital-mail/api/mail/uploads
+MAIL_PUBLIC_URL=https://admin.sindicatto.com/orbital-mail
+~~~
 
-Os arquivos reais `apps/api/.env` e `apps/web/.env` permanecem no servidor e não são enviados pelo deploy. Depois de atualizá-los quando necessário:
+A lógica e os caminhos públicos são idênticos; mudam somente domínio e raiz física do servidor. O startup rejeita:
 
-```bash
-./deploy/remote/setup.sh
-```
+- rota diferente de /orbital-mail/api/mail/uploads;
+- protocolo/domínio divergente entre imagem e Mail;
+- endereço local ou HTTP em produção.
 
-O script sincroniza o código, prepara API e Web e reinicia os dois serviços.
+A leitura da imagem é pública, mas upload e gravação continuam autenticados e isolados pelo tenant.
+
+## Descadastro
+
+Os links usam o mesmo MAIL_PUBLIC_URL das imagens:
+
+~~~text
+https://<domínio>/orbital-mail/unsubscribe?token=...
+https://<domínio>/orbital-mail/api/mail/public/unsubscribe?token=...
+~~~
+
+O token HMAC contém e-mail, tenant e campanha. MAIL_UNSUBSCRIBE_SECRET deve ser forte, estável e diferente entre ambientes. Em produção ela é obrigatória no startup; trocar a chave invalida links antigos.
+
+Geração sugerida:
+
+~~~bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+~~~
 
 ## Execução local
 
-```bash
-./deploy/local/setup.sh
-./deploy/local/start.sh
-```
+O Orbital App precisa estar ativo para autenticação e autorização:
 
-A Web usa a porta `4106` e a API usa `8106`.
+~~~bash
+./deploy/local/setup.sh
+./deploy/local/test.sh
+~~~
+
+setup.sh prepara e inicia API e Web. start.sh apenas inicia instalações já preparadas.
+
+## Deploy remoto
+
+Configure deploy/remote/target.conf e os envs de produção reais antes do envio:
+
+~~~bash
+./deploy/remote/setup.sh
+./deploy/remote/test.sh
+./deploy/remote/test-public-image.sh anpprev
+~~~
+
+O deploy segue o Orbital App: sincroniza com rsync, prepara API/Web e reinicia os serviços. Wallet, ambientes virtuais, dependências geradas, logs e .emails_para_teste não são enviados.
+
+O smoke test de imagem cria um PNG temporário no storage do tenant, consulta a URL HTTPS pública, valida status, tipo e bytes, e remove o arquivo ao terminar.
+
+## Componente incorporável
+
+~~~text
+/orbital-mail/components/mail.js
+<orbital-mail>
+~~~
+
+O componente reutiliza a gestão de campanhas e não renderiza uma segunda barra dentro do Orbital App.

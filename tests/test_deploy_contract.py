@@ -33,5 +33,7 @@ def test_config_tree_and_controlled_removals():
         for context in ('local', 'production'):
             assert (ROOT / f'apps/{app}/config/{context}/app.env').is_file()
             assert (ROOT / f'apps/{app}/config/{context}/services.env').is_file()
-    assert (ROOT / 'deploy/core/load-env.sh.remover').is_file()
+    assert not (ROOT / 'deploy/core').exists()
+    assert not (ROOT / 'apps/api/config/runtime').exists()
+    assert not (ROOT / 'apps/web/config/runtime').exists()
     assert not list(ROOT.rglob('*.remove'))

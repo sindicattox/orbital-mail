@@ -95,6 +95,10 @@ async def get_auth_context(
                 settings.auth_context_url,
                 headers={"Authorization": f"Bearer {token}"},
                 cookies=request.cookies,
+                params={
+                    "page_alias": MODULE_PAGE_ALIAS,
+                    "action_code": MODULE_ACTION_CODE,
+                },
             )
     except httpx.HTTPError as exc:
         raise HTTPException(

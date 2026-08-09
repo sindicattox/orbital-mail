@@ -19,6 +19,3 @@ apps/api/.emails_para_teste
 # Arquivos reais de ambiente por aplicação
 **/.env
 !**/.env.example
-# Seleção de configuração criada pelo deploy; o código sempre lê config/runtime
-apps/api/config/runtime
-apps/web/config/runtime

@@ -14,18 +14,13 @@ source "$TARGET_FILE"
 
 SSH_KEY="${DEPLOY_SSH_KEY:?Defina DEPLOY_SSH_KEY em $TARGET_FILE}"
 REMOTE_HOST="${DEPLOY_REMOTE_HOST:?Defina DEPLOY_REMOTE_HOST em $TARGET_FILE}"
-REMOTE_ROOT="${DEPLOY_REMOTE_ROOT:?Defina DEPLOY_REMOTE_ROOT em $TARGET_FILE}"
 SSH=(-i "$SSH_KEY" -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=120)
 
 echo "Iniciando API remota..."
-ssh "${SSH[@]}" "$REMOTE_HOST" 'bash -s' -- "$REMOTE_ROOT" <<'REMOTE'
+ssh "${SSH[@]}" "$REMOTE_HOST" 'bash -s' <<'REMOTE'
 set -euo pipefail
 
-ROOT_DIR="$1"
-API_DIR="$ROOT_DIR/apps/api"
 API_SERVICE="orbital-mail-api.service"
-
-ln -sfn production "$API_DIR/config/runtime"
 
 sudo systemctl restart "$API_SERVICE"
 systemctl is-active --quiet "$API_SERVICE"

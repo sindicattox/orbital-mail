@@ -80,6 +80,7 @@ def test_campaign_and_queue_are_atomic_and_errors_are_controlled():
     assert service.index('campaign_id = _create_test_campaign_and_queue') < service.index('_stop_events[campaign_id] = stop_event')
 
 
-def test_private_email_file_is_never_shipped_in_zip_source_tree():
-    assert not (API / '.emails_para_teste').exists()
+def test_private_email_file_is_never_shipped_in_remote_deploy():
+    deploy = (ROOT / "deploy/remote/setup.sh").read_text(encoding="utf-8")
+    assert "--exclude='apps/api/.emails_para_teste'" in deploy
     assert (API / '.emails_para_teste.example').exists()

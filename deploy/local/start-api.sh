@@ -12,7 +12,6 @@ UVICORN="$API_DIR/.venv/bin/uvicorn"
     exit 1
 }
 
-ln -sfn local "$API_DIR/config/runtime"
 cd "$API_DIR"
 "$PYTHON" -c 'from core.settings import get_settings; get_settings()'
 read -r API_HOST API_PORT < <("$PYTHON" -c 'from core.settings import get_settings; s=get_settings(); print(s.app_host, s.app_port)')

@@ -5,15 +5,16 @@ MAIL_ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = Path(os.environ.get("ORBITAL_APP_ROOT", MAIL_ROOT.parent / "orbital-app")).resolve()
 
 EXACT_COMMON = (
+    "deploy/CONTRACT.md",
     "deploy/local/setup.sh",
     "deploy/local/start.sh",
+    "deploy/local/start-web.sh",
     "deploy/remote/setup.sh",
     "deploy/remote/start.sh",
     "deploy/remote/wallet-upload.sh",
 )
 
 MAIL_ONLY = {
-    "deploy/core/load-env.sh.remover",
     "deploy/local/test-web.sh",
     "deploy/remote/test-public-image.sh",
     "deploy/remote/test-web.sh",
@@ -28,6 +29,7 @@ APP_ONLY = {
     "deploy/remote/test-db.sh",
     "deploy/remote/test-login-real.sh",
     "deploy/remote/test-oracle-pool-live.sh",
+    "deploy/temp/inspect-oracle-pool.sh",
 }
 
 
@@ -36,7 +38,13 @@ def read(root: Path, rel: str) -> str:
 
 
 def deploy_files(root: Path) -> set[str]:
-    return {str(path.relative_to(root)) for path in (root / "deploy").rglob("*") if path.is_file()}
+    return {
+        str(path.relative_to(root))
+        for path in (root / "deploy").rglob("*")
+        if path.is_file()
+        and "__pycache__" not in path.parts
+        and path.suffix != ".pyc"
+    }
 
 
 def test_reference_exists():
@@ -57,7 +65,11 @@ def test_deploy_tree_diff_is_explicit():
 
 def test_target_conf_has_same_generic_keys_and_mail_root_only():
     def keys(root: Path):
-        return [line.split("=", 1)[0] for line in read(root, "deploy/remote/target.conf").splitlines() if line and not line.startswith("#")]
+        return [
+            line.split("=", 1)[0]
+            for line in read(root, "deploy/remote/target.conf").splitlines()
+            if line and not line.startswith("#")
+        ]
 
     assert keys(MAIL_ROOT) == keys(APP_ROOT)
     mail = read(MAIL_ROOT, "deploy/remote/target.conf")
@@ -66,7 +78,7 @@ def test_target_conf_has_same_generic_keys_and_mail_root_only():
     assert "DEPLOY_REMOTE_WALLET_DIR=/home/ubuntu/.oracle/Wallet_sindicatto" in mail
 
 
-def test_common_setup_and_start_scripts_only_diverge_for_module_identity_or_worker():
+def test_common_setup_scripts_only_diverge_for_module_identity():
     app_setup_api = read(APP_ROOT, "deploy/local/setup-api.sh")
     mail_setup_api = read(MAIL_ROOT, "deploy/local/setup-api.sh")
     assert mail_setup_api == app_setup_api.replace("API_PORT=8001", "API_PORT=8106")
@@ -77,19 +89,18 @@ def test_common_setup_and_start_scripts_only_diverge_for_module_identity_or_work
 
     app_remote_web = read(APP_ROOT, "deploy/remote/setup-web.sh")
     expected_remote_web = app_remote_web.replace("WEB_PORT=4001", "WEB_PORT=4106").replace(
-        'WEB_SERVICE="orbital-app-web.service"', 'WEB_SERVICE="orbital-mail-web.service"'
-    ).replace(
-        'cd "$WEB_DIR"\nrm -rf .astro dist',
-        'ln -sfn production "$WEB_DIR/config/runtime"\ncd "$WEB_DIR"\nrm -rf .astro dist',
+        'WEB_SERVICE="orbital-app-web.service"',
+        'WEB_SERVICE="orbital-mail-web.service"',
     )
     assert read(MAIL_ROOT, "deploy/remote/setup-web.sh") == expected_remote_web
 
 
-def test_runtime_config_selection_is_deploy_responsibility():
-    contract = read(MAIL_ROOT, "deploy/CONTRACT.md")
-    assert "API e Web leem somente `config/runtime`" in contract
-    assert 'ln -sfn local "$API_DIR/config/runtime"' in read(MAIL_ROOT, "deploy/local/start-api.sh")
-    assert 'ln -sfn local "$WEB_DIR/config/runtime"' in read(MAIL_ROOT, "deploy/local/start-web.sh")
-    assert 'ln -sfn production "$API_DIR/config/runtime"' in read(MAIL_ROOT, "deploy/remote/start-api.sh")
-    assert 'ln -sfn production "$WEB_DIR/config/runtime"' in read(MAIL_ROOT, "deploy/remote/start-web.sh")
+def test_applications_select_config_with_same_base_loader():
+    assert read(MAIL_ROOT, "apps/api/core/load_env.py") == read(APP_ROOT, "apps/api/core/load_env.py")
+    assert read(MAIL_ROOT, "apps/web/scripts/load-env.mjs") == read(APP_ROOT, "apps/web/scripts/load-env.mjs")
 
+
+def test_private_test_addresses_are_excluded_from_remote_sync():
+    for root in (APP_ROOT, MAIL_ROOT):
+        source = read(root, "deploy/remote/setup.sh")
+        assert "--exclude='apps/api/.emails_para_teste'" in source
