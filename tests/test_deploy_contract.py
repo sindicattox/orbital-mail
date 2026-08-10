@@ -16,7 +16,8 @@ def test_local_contract():
     assert '"$SCRIPT_DIR/setup-web.sh"' in setup
     assert "workers.sh" not in setup
     assert '"http://127.0.0.1:${API_PORT}/api/health"' in text(LOCAL / "start-api.sh")
-    assert "http://127.0.0.1:4106/orbital-mail/" in text(LOCAL / "start-web.sh")
+    assert "WEB_PORT=\"$(sed -n 's/^APP_PORT=//p' \"$APP_CONFIG\")\"" in text(LOCAL / "start-web.sh")
+    assert 'http://127.0.0.1:${WEB_PORT}/orbital-mail/' in text(LOCAL / "start-web.sh")
 
 
 def test_remote_contract():

@@ -94,7 +94,8 @@ def test_local_and_production_follow_orbital_app_environment_pattern():
 
     assert local_api["APP_ENV"] == "development"
     assert production_api["APP_ENV"] == "production"
-    assert local_api["APP_HOST"] == local_web["APP_HOST"] == "0.0.0.0"
+    assert local_api["APP_HOST"] == "0.0.0.0"
+    assert local_web["APP_HOST"] == "127.0.0.1"
     assert production_api["APP_HOST"] == production_web["APP_HOST"] == "127.0.0.1"
 
     local_services = _env_map("apps/api/config/local/services.env")

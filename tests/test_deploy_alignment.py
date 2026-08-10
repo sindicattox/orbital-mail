@@ -26,9 +26,10 @@ def test_contract_and_wallet_upload_are_app_only():
 
 def test_generic_scripts_follow_orbital_app():
     assert read(MAIL_ROOT, "deploy/local/setup-api.sh") == read(APP_ROOT, "deploy/local/setup-api.sh")
-    assert read(MAIL_ROOT, "deploy/local/setup-web.sh") == read(APP_ROOT, "deploy/local/setup-web.sh").replace(
-        "WEB_PORT=4001", "WEB_PORT=4106"
-    )
+    mail_setup_web = read(MAIL_ROOT, "deploy/local/setup-web.sh")
+    assert 'APP_CONFIG="$WEB_DIR/config/local/app.env"' in mail_setup_web
+    assert "WEB_PORT=\"$(sed -n 's/^APP_PORT=//p' \"$APP_CONFIG\")\"" in mail_setup_web
+    assert "WEB_PORT=4106" not in mail_setup_web
     assert read(MAIL_ROOT, "deploy/local/start.sh") == read(APP_ROOT, "deploy/local/start.sh")
     assert read(MAIL_ROOT, "deploy/remote/setup-api.sh") == read(APP_ROOT, "deploy/remote/setup-api.sh")
     assert read(MAIL_ROOT, "deploy/remote/setup-web.sh") == read(APP_ROOT, "deploy/remote/setup-web.sh")
