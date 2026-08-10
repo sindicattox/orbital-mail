@@ -81,8 +81,8 @@ def test_no_standalone_auth_bypass_remains():
 
 def test_remote_web_health_check_uses_same_module_base():
     source = read("deploy/remote/start-web.sh")
-    assert "http://127.0.0.1:4106/orbital-mail/" in source
-    assert "http://127.0.0.1:4106/ >/dev/null" not in source
+    assert '"http://127.0.0.1:${WEB_PORT}/orbital-mail/"' in source
+    assert '"http://127.0.0.1:${WEB_PORT}/"' not in source
     assert "config/runtime" not in source
 
 

@@ -28,6 +28,7 @@ rsync -az --delete --itemize-changes \
     --exclude='*.pyc' \
     --exclude='__pycache__/' \
     --exclude='*.remover' \
+    --exclude='*.external' \
     --exclude='apps/api/.venv/' \
     --exclude='apps/api/logs/' \
     --exclude='apps/api/.emails_para_teste' \

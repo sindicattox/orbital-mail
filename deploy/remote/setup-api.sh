@@ -23,8 +23,13 @@ set -euo pipefail
 
 ROOT_DIR="$1"
 API_DIR="$ROOT_DIR/apps/api"
-API_PORT=8106
-API_SERVICE="orbital-mail-api.service"
+APP_CONFIG="$API_DIR/config/production/app.env"
+[[ -f "$APP_CONFIG" ]] || { echo "Configuração da API não encontrada: $APP_CONFIG" >&2; exit 1; }
+API_PORT="$(sed -n 's/^APP_PORT=//p' "$APP_CONFIG")"
+API_SERVICE="$(sed -n 's/^API_SYSTEMD_SERVICE=//p' "$APP_CONFIG")"
+
+[[ "$API_PORT" =~ ^[0-9]+$ ]] && ((API_PORT >= 1 && API_PORT <= 65535)) || { echo "APP_PORT inválido." >&2; exit 1; }
+[[ "$API_SERVICE" =~ ^[A-Za-z0-9_.@:-]+\.service$ ]] || { echo "API_SYSTEMD_SERVICE inválido." >&2; exit 1; }
 
 sudo systemctl stop "$API_SERVICE" 2>/dev/null || true
 sudo fuser -k "${API_PORT}/tcp" >/dev/null 2>&1 || true
@@ -33,6 +38,7 @@ cd "$API_DIR"
 rm -rf .venv
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+"$ROOT_DIR/deploy/remote/systemd/install.sh" "$ROOT_DIR" "$API_SERVICE"
 REMOTE
 
 echo "API remota preparada."

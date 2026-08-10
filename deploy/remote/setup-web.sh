@@ -23,8 +23,13 @@ set -euo pipefail
 
 ROOT_DIR="$1"
 WEB_DIR="$ROOT_DIR/apps/web"
-WEB_PORT=4106
-WEB_SERVICE="orbital-mail-web.service"
+APP_CONFIG="$WEB_DIR/config/production/app.env"
+[[ -f "$APP_CONFIG" ]] || { echo "Configuração da Web não encontrada: $APP_CONFIG" >&2; exit 1; }
+WEB_PORT="$(sed -n 's/^APP_PORT=//p' "$APP_CONFIG")"
+WEB_SERVICE="$(sed -n 's/^WEB_SYSTEMD_SERVICE=//p' "$APP_CONFIG")"
+
+[[ "$WEB_PORT" =~ ^[0-9]+$ ]] && ((WEB_PORT >= 1 && WEB_PORT <= 65535)) || { echo "APP_PORT inválido." >&2; exit 1; }
+[[ "$WEB_SERVICE" =~ ^[A-Za-z0-9_.@:-]+\.service$ ]] || { echo "WEB_SYSTEMD_SERVICE inválido." >&2; exit 1; }
 
 sudo systemctl stop "$WEB_SERVICE" 2>/dev/null || true
 sudo fuser -k "${WEB_PORT}/tcp" >/dev/null 2>&1 || true
@@ -34,6 +39,7 @@ rm -rf .astro dist
 npm ci
 npm run build
 test -s dist/server/entry.mjs
+"$ROOT_DIR/deploy/remote/systemd/install.sh" "$ROOT_DIR" "$WEB_SERVICE"
 REMOTE
 
 echo "Web remota preparada."

@@ -1,0 +1,17 @@
+[Unit]
+Description=orbital-mail API FastAPI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__REMOTE_USER__
+Group=__REMOTE_GROUP__
+WorkingDirectory=__REMOTE_ROOT__/apps/api
+EnvironmentFile=__REMOTE_ROOT__/apps/api/config/production/app.env
+ExecStart=__REMOTE_ROOT__/apps/api/.venv/bin/uvicorn main:app --host ${APP_HOST} --port ${APP_PORT} --workers 2
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

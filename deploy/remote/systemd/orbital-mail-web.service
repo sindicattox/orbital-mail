@@ -1,0 +1,18 @@
+[Unit]
+Description=orbital-mail Astro Web
+After=network-online.target orbital-mail-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__REMOTE_USER__
+Group=__REMOTE_GROUP__
+WorkingDirectory=__REMOTE_ROOT__/apps/web
+EnvironmentFile=__REMOTE_ROOT__/apps/web/config/production/app.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node __REMOTE_ROOT__/apps/web/dist/server/entry.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

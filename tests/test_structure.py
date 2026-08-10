@@ -5,9 +5,10 @@ def test_required_structure():
     required = [
         'apps/api/main.py','apps/api/core/auth.py','apps/api/core/settings.py','apps/api/mail/router.py',
         'apps/web/package.json','apps/web/src/pages/index.astro','apps/web/src/config/api-url.ts',
-        'deploy/CONTRACT.md','deploy/local/setup.sh','deploy/local/start.sh',
+        'deploy/local/setup.sh','deploy/local/start.sh',
         'deploy/local/test.sh','deploy/remote/setup.sh','deploy/remote/start.sh','deploy/remote/test.sh',
-        'deploy/remote/target.conf',
+        'deploy/remote/target.conf','deploy/remote/systemd/install.sh',
+        'deploy/remote/systemd/orbital-mail-api.service','deploy/remote/systemd/orbital-mail-web.service',
     ]
     assert not [path for path in required if not (ROOT/path).exists()]
 
