@@ -20,9 +20,11 @@ export const mailStyles = `
   tr:last-child td { border-bottom: 0; }
   .empty { text-align: center; padding: 3rem 1rem; color: var(--orbital-muted-text, #667085); }
   .badge { display: inline-flex; padding: .25rem .55rem; border-radius: 999px; background: var(--orbital-muted-surface, #f2f4f7); font-size: .78rem; }
-  .actions { white-space: nowrap; min-width: 250px; }
+  .actions { white-space: nowrap; }
   .icon-button { display: inline-flex; border: 0; background: transparent; color: var(--orbital-primary, #175cd3); text-decoration: none; font: inherit; font-weight: 700; cursor: pointer; padding: .3rem; }
   .icon-button.danger { color: var(--orbital-danger, #b42318); }
+  .dev-action { border: 1px solid #d92d20; border-radius: .4rem; }
+  .dev-highlight { border: 2px solid #d92d20; box-shadow: 0 0 0 3px rgb(217 45 32 / 10%); }
   td small { display: block; color: var(--orbital-muted-text, #667085); margin-top: .2rem; }
   .message { border-radius: .65rem; padding: .8rem 1rem; margin-bottom: 1rem; }
   .message.error { background: #fef3f2; border: 1px solid #fecdca; color: #b42318; }

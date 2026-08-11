@@ -81,3 +81,27 @@ def test_remote_forwards_bearer_and_uses_orbital_context(monkeypatch):
     assert context.is_admin is True
     assert context.is_dev is False
     context.require_module_access()
+
+
+def test_non_dev_cannot_use_dev_resources():
+    context = auth_core.AuthContext(
+        user_id=91,
+        tenant_code="asaclub",
+        is_admin=False,
+        is_dev=False,
+        permissions=frozenset({("orbital-mail-home", "access_page")}),
+    )
+    with pytest.raises(Exception) as exc_info:
+        context.require_dev()
+    assert getattr(exc_info.value, "status_code", None) == 403
+
+
+def test_dev_can_use_dev_resources():
+    context = auth_core.AuthContext(
+        user_id=1,
+        tenant_code="asaclub",
+        is_admin=True,
+        is_dev=True,
+        permissions=frozenset(),
+    )
+    context.require_dev()

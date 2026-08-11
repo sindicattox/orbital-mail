@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import re
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from uuid import uuid4
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -17,9 +15,7 @@ from sqlalchemy.orm import Session
 from core.auth import AuthContext, get_auth_context
 from core.database import get_db, get_engine
 from core.settings import API_DIR, get_settings
-from mail.delivery_test_service import TestSendPayload as DeliveryTestSendPayload, _send_smtp, _send_smtp2go
-from mail.unsubscribe import append_unsubscribe_footer, one_click_unsubscribe_url, unsubscribe_headers, unsubscribe_url
-from mail.delivery_policy import accepted_decision, exception_decision, DeliveryDecision
+from mail.delivery_worker_service import MailDeliveryWorkerService
 
 router = APIRouter(tags=["mail-loop-test"])
 _stop_events: dict[int, threading.Event] = {}
@@ -184,181 +180,25 @@ def _create_test_campaign_and_queue(db: Session, tenant_code: str, payload: Loop
     ) from last_integrity_error
 
 
-def _reserve_one(db: Session, campaign_id: int, tenant_code: str) -> dict[str, Any] | None:
-    statement = text("""
-        SELECT id, email, name
-          FROM email_queue
-         WHERE email_campaign_id = :campaign_id
-           AND LOWER(tenant_code) = LOWER(:tenant_code)
-           AND status = 'pending'
-           AND blocked = 0
-           AND (next_try_at IS NULL OR next_try_at <= SYSDATE)
-         ORDER BY priority, created_at, id
-         FOR UPDATE SKIP LOCKED
-    """).execution_options(stream_results=True, yield_per=1)
-    row = db.execute(
-        statement,
-        {"campaign_id": campaign_id, "tenant_code": tenant_code},
-    ).mappings().first()
-    if row is None:
-        db.rollback()
-        return None
-    db.execute(text("""
-        UPDATE email_queue
-           SET status = 'processing', last_try = SYSDATE, updated_at = SYSDATE,
-               try_count = try_count + 1, error = NULL, retryable = 0
-         WHERE id = :id
-    """), {"id": row["id"]})
-    db.commit()
-    return dict(row)
-
-
-def _load_campaign(db: Session, campaign_id: int, tenant_code: str) -> dict[str, Any]:
-    row = db.execute(text("""
-        SELECT subject, body_html, body_text, sender_name, sender_email, reply_to
-          FROM email_campaign
-         WHERE id = :campaign_id AND LOWER(tenant_code) = LOWER(:tenant_code)
-    """), {"campaign_id": campaign_id, "tenant_code": tenant_code}).mappings().one()
-    return dict(row)
-
-
-def _finish_item(
-    db: Session,
-    queue_id: int,
-    campaign_id: int,
-    email: str,
-    subject: str,
-    decision: DeliveryDecision,
-) -> None:
-    next_try_sql = "SYSDATE + (1 / 1440)" if decision.retryable else "NULL"
-    db.execute(text(f"""
-        UPDATE email_queue
-           SET status = :status,
-               provider = :provider,
-               provider_status = :provider_status,
-               provider_code = :provider_code,
-               provider_message_id = NVL(:provider_message_id, provider_message_id),
-               provider_last_event_at = SYSDATE,
-               last_error_class = :error_class,
-               retryable = :retryable,
-               blocked = :blocked,
-               next_try_at = {next_try_sql},
-               error = :error,
-               last_try = SYSDATE,
-               updated_at = SYSDATE
-         WHERE id = :queue_id
-    """), {
-        "status": decision.queue_status,
-        "provider": decision.provider,
-        "provider_status": decision.provider_status,
-        "provider_code": decision.provider_code,
-        "provider_message_id": decision.provider_message_id,
-        "error_class": decision.error_class,
-        "retryable": 1 if decision.retryable else 0,
-        "blocked": 1 if decision.blocked else 0,
-        "error": decision.error,
-        "queue_id": queue_id,
-    })
-    db.execute(text("""
-        INSERT INTO email_send_log (
-            email_queue_id, email_campaign_id, email, subject, status, error, created_at,
-            provider_message_id, event_type, provider, provider_code, error_class,
-            retryable, raw_response, event_at
-        ) VALUES (
-            :queue_id, :campaign_id, :email, :subject, :status, :error, SYSDATE,
-            :provider_message_id, :event_type, :provider, :provider_code, :error_class,
-            :retryable, :raw_response, SYSDATE
-        )
-    """), {
-        "queue_id": queue_id,
-        "campaign_id": campaign_id,
-        "email": email,
-        "subject": subject,
-        "status": decision.log_status,
-        "error": decision.error,
-        "provider_message_id": decision.provider_message_id,
-        "event_type": decision.event_type,
-        "provider": decision.provider,
-        "provider_code": decision.provider_code,
-        "error_class": decision.error_class,
-        "retryable": 1 if decision.retryable else 0,
-        "raw_response": decision.raw_response,
-    })
-    if decision.blocked and decision.error_class == "recipient":
-        db.execute(text("""
-            MERGE INTO email_blacklist b
-            USING (SELECT :email AS email, :tenant_code AS tenant_code FROM dual) src
-               ON (LOWER(b.email) = LOWER(src.email)
-                   AND NVL(LOWER(b.tenant_code), '*') = NVL(LOWER(src.tenant_code), '*'))
-            WHEN MATCHED THEN UPDATE SET
-                b.reason = :reason, b.source = 'send_error', b.provider = :provider,
-                b.permanent = 1, b.updated_at = SYSDATE
-            WHEN NOT MATCHED THEN INSERT (
-                email, reason, created_at, tenant_code, source, provider, permanent, updated_at
-            ) VALUES (
-                :email, :reason, SYSDATE, :tenant_code, 'send_error', :provider, 1, SYSDATE
-            )
-        """), {
-            "email": email,
-            "tenant_code": db.execute(text("SELECT tenant_code FROM email_queue WHERE id = :id"), {"id": queue_id}).scalar_one(),
-            "reason": decision.error or "Erro definitivo do destinatário",
-            "provider": decision.provider,
-        })
-    db.commit()
-
-
 def _worker(campaign_id: int, tenant_code: str, provider: str, stop_event: threading.Event) -> None:
     settings = get_settings()
     while not stop_event.is_set():
         db = _new_session()
         try:
-            item = _reserve_one(db, campaign_id, tenant_code)
-            if item is None:
+            service = MailDeliveryWorkerService(db, settings)
+            decision = service.process_one(
+                provider,
+                campaign_id=campaign_id,
+                tenant_code=tenant_code,
+                include_test_campaigns=True,
+            )
+            if decision is None:
                 return
-            campaign = _load_campaign(db, campaign_id, tenant_code)
-            opt_out_url = unsubscribe_url(item["email"], tenant_code, campaign_id)
-            one_click_url = one_click_unsubscribe_url(item["email"], tenant_code, campaign_id)
-            body_html, body_text = append_unsubscribe_footer(
-                campaign.get("body_html") or "",
-                campaign.get("body_text"),
-                opt_out_url,
-            )
-            payload = DeliveryTestSendPayload(
-                provider=provider,
-                to_email=item["email"],
-                to_name=item.get("name") or "",
-                subject=campaign["subject"],
-                body_html=body_html,
-                body_text=body_text,
-                from_name=campaign.get("sender_name"),
-                from_email=campaign.get("sender_email"),
-                reply_to=campaign.get("reply_to"),
-                headers=unsubscribe_headers(one_click_url),
-            )
-            try:
-                result = _send_smtp2go(payload) if provider == "smtp2go" else _send_smtp(payload)
-                provider_message_id = result.provider_message_id
-                if provider == "smtp2go":
-                    provider_message_id = (
-                        ((result.diagnostic.get("provider_response") or {}).get("data") or {}).get("email_id")
-                        or provider_message_id
-                    )
-                decision = accepted_decision(provider, result)
-                _finish_item(db, int(item["id"]), campaign_id, item["email"], campaign["subject"], decision)
-            except Exception as exc:  # classifica retry, bloqueio e erro de configuração
-                try_count = int(db.execute(text("SELECT try_count FROM email_queue WHERE id = :id"), {"id": item["id"]}).scalar_one() or 0)
-                decision = exception_decision(provider, exc, try_count, settings.mail_worker_max_attempts)
-                _finish_item(db, int(item["id"]), campaign_id, item["email"], campaign["subject"], decision)
-                if decision.error_class == "configuration":
-                    stop_event.set()
-                    db.execute(text("""
-                        UPDATE email_campaign SET status = 'error', updated_at = SYSDATE
-                         WHERE id = :campaign_id AND LOWER(tenant_code) = LOWER(:tenant_code)
-                    """), {"campaign_id": campaign_id, "tenant_code": tenant_code})
-                    db.commit()
-                    return
+            if decision.error_class == "configuration":
+                stop_event.set()
+                return
             if settings.mail_worker_delay_ms > 0:
-                time.sleep(settings.mail_worker_delay_ms / 1000)
+                stop_event.wait(settings.mail_worker_delay_ms / 1000)
         finally:
             db.close()
 
@@ -436,7 +276,7 @@ def _run_job(campaign_id: int, tenant_code: str, provider: str, workers: int, st
 
 @router.get("/test-loop/allowed-emails")
 def allowed_test_emails(auth: AuthContext = Depends(get_auth_context)):
-    auth.require_module_access()
+    auth.require_dev()
     emails = _load_test_emails()
     return {
         "file": TEST_EMAILS_FILE.name,
@@ -447,7 +287,7 @@ def allowed_test_emails(auth: AuthContext = Depends(get_auth_context)):
 
 @router.post("/test-loop/start", response_model=LoopTestStartResponse, status_code=status.HTTP_202_ACCEPTED)
 def start_loop_test(payload: LoopTestStart, db: Session = Depends(get_db), auth: AuthContext = Depends(get_auth_context)):
-    auth.require_module_access()
+    auth.require_dev()
     settings = get_settings()
     if not settings.mail_send_enabled:
         raise HTTPException(status_code=409, detail="Envio bloqueado. Configure EMAIL_SEND_ENABLED=true.")
@@ -506,7 +346,7 @@ def start_loop_test(payload: LoopTestStart, db: Session = Depends(get_db), auth:
 
 @router.get("/test-loop/{campaign_id}/status")
 def loop_test_status(campaign_id: int, db: Session = Depends(get_db), auth: AuthContext = Depends(get_auth_context)):
-    auth.require_module_access()
+    auth.require_dev()
     row = db.execute(text("""
         SELECT c.id, c.internal_name, c.status,
                COUNT(q.id) AS total,
@@ -550,7 +390,7 @@ def loop_test_status(campaign_id: int, db: Session = Depends(get_db), auth: Auth
 
 @router.post("/test-loop/{campaign_id}/stop")
 def stop_loop_test(campaign_id: int, auth: AuthContext = Depends(get_auth_context)):
-    auth.require_module_access()
+    auth.require_dev()
     with _manager_lock:
         event = _stop_events.get(campaign_id)
     if event is None:

@@ -25,6 +25,14 @@ class AuthContext:
             detail="Você não tem acesso ao módulo Orbital Mail.",
         )
 
+    def require_dev(self) -> None:
+        if self.is_dev:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recurso exclusivo para desenvolvedor.",
+        )
+
 
 def _extract_token(request: Request, authorization: str | None) -> str | None:
     if authorization and authorization.lower().startswith("bearer "):

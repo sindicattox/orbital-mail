@@ -20,8 +20,8 @@ def test_contract_and_wallet_upload_are_app_only():
     assert (APP_ROOT / "deploy/remote/wallet-upload.sh").is_file()
     assert not (MAIL_ROOT / "deploy/remote/wallet-upload.sh").exists()
     assert (MAIL_ROOT / "deploy/remote/wallet-upload.sh.remover").is_file()
-    assert not (MAIL_ROOT / "deploy/local/workers.sh").exists()
-    assert not (MAIL_ROOT / "deploy/remote/workers.sh").exists()
+    assert (MAIL_ROOT / "deploy/local/workers.sh").is_file()
+    assert (MAIL_ROOT / "deploy/remote/workers.sh").is_file()
 
 
 def test_generic_scripts_follow_orbital_app():
@@ -43,7 +43,7 @@ def test_remote_setup_has_no_app_only_steps():
     assert '"$SCRIPT_DIR/setup-api.sh"' in source
     assert '"$SCRIPT_DIR/setup-web.sh"' in source
     assert "wallet-upload.sh" not in source
-    assert "workers.sh" not in source
+    assert source.count('"$SCRIPT_DIR/workers.sh"') == 1
     assert "--exclude='*.remover'" in source
     assert "--exclude='*.external'" in source
 

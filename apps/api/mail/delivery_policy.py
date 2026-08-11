@@ -71,9 +71,13 @@ def exception_decision(provider: str, exc: Exception, try_count: int, max_attemp
         "api_key", "api key", "credential", "authentication", "auth", "sender",
         "remetente", "not verified", "não verificado", "account suspended",
         "conta suspensa", "daily quota", "cota diária",
+        "configuração ausente", "configuration missing", "missing configuration",
+        "email_from_address", "mail_public_url", "mail_unsubscribe_secret",
+        "smtp_host", "smtp_password",
     )
     recipient_terms = (
-        "invalid recipient", "invalid email", "destinatário inválido", "recipient rejected",
+        "invalid recipient", "invalid email", "not a valid email address", "email address is not valid",
+        "destinatário inválido", "recipient rejected",
         "mailbox unavailable", "user unknown", "does not exist", "suppressed",
         "unsubscribe", "complaint", "hard bounce",
     )

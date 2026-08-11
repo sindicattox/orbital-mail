@@ -5,6 +5,23 @@ const ALLOWED_IMAGE_TYPES = new Set([
   'image/gif',
 ]);
 
+function callDocumentEditingApi(method, ...args) {
+  const fn = Reflect.get(document, method);
+  return typeof fn === 'function' ? Reflect.apply(fn, document, args) : undefined;
+}
+
+function executeEditingCommand(command, value) {
+  return Boolean(callDocumentEditingApi('execCommand', command, false, value));
+}
+
+function editingCommandState(command) {
+  return Boolean(callDocumentEditingApi('queryCommandState', command));
+}
+
+function editingCommandValue(command) {
+  return String(callDocumentEditingApi('queryCommandValue', command) || '');
+}
+
 class OrbitalHtmlEditor extends HTMLElement {
   connectedCallback() {
     if (this.dataset.ready === 'true') return;
@@ -48,7 +65,7 @@ class OrbitalHtmlEditor extends HTMLElement {
       button.addEventListener('mousedown', (event) => {
         event.preventDefault();
         this.restoreSelection();
-        document.execCommand(button.dataset.command, false);
+        executeEditingCommand(button.dataset.command);
         this.saveSelection();
         this.syncValue();
         this.updateToolbarState();
@@ -59,7 +76,7 @@ class OrbitalHtmlEditor extends HTMLElement {
       button.addEventListener('mousedown', (event) => {
         event.preventDefault();
         this.restoreSelection();
-        document.execCommand('formatBlock', false, button.dataset.block);
+        executeEditingCommand('formatBlock', button.dataset.block);
         this.saveSelection();
         this.syncValue();
         this.updateToolbarState();
@@ -140,7 +157,7 @@ class OrbitalHtmlEditor extends HTMLElement {
       this.setStatus('Use uma URL iniciada por http://, https:// ou mailto:.', true);
       return;
     }
-    document.execCommand('createLink', false, url);
+    executeEditingCommand('createLink', url);
     this.saveSelection();
     this.syncValue();
     this.updateToolbarState();
@@ -240,10 +257,10 @@ class OrbitalHtmlEditor extends HTMLElement {
     if (this.sourceMode) return;
 
     const commandStates = {
-      bold: document.queryCommandState('bold'),
-      italic: document.queryCommandState('italic'),
-      underline: document.queryCommandState('underline'),
-      insertUnorderedList: document.queryCommandState('insertUnorderedList'),
+      bold: editingCommandState('bold'),
+      italic: editingCommandState('italic'),
+      underline: editingCommandState('underline'),
+      insertUnorderedList: editingCommandState('insertUnorderedList'),
     };
 
     this.querySelectorAll('[data-command]').forEach((button) => {
@@ -252,7 +269,7 @@ class OrbitalHtmlEditor extends HTMLElement {
       button.setAttribute('aria-pressed', String(active));
     });
 
-    const block = String(document.queryCommandValue('formatBlock') || '')
+    const block = editingCommandValue('formatBlock')
       .replace(/[<>]/g, '')
       .toLowerCase();
     this.querySelectorAll('[data-block]').forEach((button) => {

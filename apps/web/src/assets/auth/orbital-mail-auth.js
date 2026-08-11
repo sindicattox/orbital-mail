@@ -79,7 +79,25 @@
     return;
   }
 
+  function applyContext(context) {
+    const isDev = context?.is_dev === true;
+    document.body.dataset.isDev = isDev ? 'true' : 'false';
+    window.orbitalMailAuthContext = context;
+    document.dispatchEvent(new CustomEvent('orbital-mail-auth-context', { detail: context }));
+
+    if (!isDev && document.body.dataset.devOnlyPage === 'true') {
+      const moduleBase = (document.body.dataset.moduleBase || '/orbital-mail').replace(/\/+$/, '');
+      window.location.replace(`${moduleBase}/`);
+    }
+  }
+
   const base = new URL(configuredApiUrl, window.location.origin);
   const contextUrl = new URL(`${base.pathname.replace(/\/+$/, '')}/auth/context`, base.origin);
-  window.fetch(contextUrl.toString(), { cache: 'no-store' }).catch(() => {});
+  window.fetch(contextUrl.toString(), { cache: 'no-store' })
+    .then(async (response) => {
+      if (!response.ok) return null;
+      return response.json().catch(() => null);
+    })
+    .then((context) => { if (context) applyContext(context); })
+    .catch(() => {});
 })();

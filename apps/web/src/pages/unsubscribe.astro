@@ -35,7 +35,7 @@ const token = Astro.url.searchParams.get('token') || '';
       <div id="status" class="status" hidden></div>
     </main>
 
-    <script define:vars={{ apiUrl, token }}>
+    <script is:inline define:vars={{ apiUrl, token }}>
       const content = document.querySelector('#content');
       const statusBox = document.querySelector('#status');
 

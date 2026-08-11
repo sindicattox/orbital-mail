@@ -15,12 +15,12 @@ class CampaignStatus(str, Enum):
 
 
 class CampaignBase(BaseModel):
-    internal_name: str = Field(min_length=2, max_length=255)
+    internal_name: str | None = Field(default=None, min_length=2, max_length=255)
     subject: str = Field(min_length=2, max_length=500)
     body_html: str | None = None
     body_text: str | None = None
-    sender_name: str = Field(min_length=2, max_length=255)
-    sender_email: EmailStr
+    sender_name: str | None = Field(default=None, min_length=2, max_length=255)
+    sender_email: EmailStr | None = None
     reply_to: EmailStr | None = None
 
     @model_validator(mode='after')

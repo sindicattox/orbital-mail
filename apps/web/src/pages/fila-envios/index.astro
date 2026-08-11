@@ -2,7 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import { apiUrl } from '../../config/api-url';
 ---
-<AppLayout title="Fila de envios" description="Mensagens que podem ser disparadas pelo Orbital Mail">
+<AppLayout title="Fila de envios" description="Mensagens que podem ser disparadas pelo Orbital Mail" devOnly>
   <section class="page-head">
     <div>
       <h1>Fila atual de envios</h1>
@@ -49,7 +49,7 @@ import { apiUrl } from '../../config/api-url';
   </section>
 </AppLayout>
 
-<script define:vars={{ apiUrl }}>
+<script is:inline define:vars={{ apiUrl }}>
   const state = { page: 1, pages: 1, search: '', loading: false };
   const apiErrors = window.OrbitalApiErrors;
   const byId = (id) => document.getElementById(id);
@@ -67,9 +67,14 @@ import { apiUrl } from '../../config/api-url';
     const title = document.createElement('strong');
     title.textContent = data.send_enabled ? 'ENVIO LIBERADO' : 'ENVIO BLOQUEADO';
     const detail = document.createElement('span');
+    const isDev = data.is_dev === true;
     detail.textContent = data.send_enabled
-      ? ` EMAIL_SEND_ENABLED=true. Os ${data.summary.pending} itens pendentes podem ser consumidos pelo worker usando ${text(data.provider)}.`
-      : ` EMAIL_SEND_ENABLED=false. Nenhum item pendente será enviado enquanto o bloqueio permanecer ativo.`;
+      ? (isDev
+        ? ` EMAIL_SEND_ENABLED=true. Os ${data.summary.pending} itens pendentes podem ser consumidos pelo worker usando ${text(data.provider)}.`
+        : ` Os ${data.summary.pending} itens pendentes estão disponíveis para processamento.`)
+      : (isDev
+        ? ` EMAIL_SEND_ENABLED=false. Nenhum item pendente será enviado enquanto o bloqueio permanecer ativo.`
+        : ' Nenhum e-mail será enviado enquanto o envio estiver bloqueado.');
     panel.append(title, detail);
   }
 

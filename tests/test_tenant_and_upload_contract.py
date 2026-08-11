@@ -27,7 +27,7 @@ def test_upload_is_public_and_separated_by_authenticated_tenant():
 
 
 def test_editor_upload_credentials_timeout_and_active_buttons():
-    editor = (ROOT / 'apps/web/src/components/orbital-html-editor/editor.js').read_text()
+    editor = (ROOT / 'apps/web/public/components/orbital-html-editor/editor.js').read_text()
     css = (ROOT / 'apps/web/src/components/orbital-html-editor/editor.css').read_text()
 
     assert "credentials: 'include'" in editor

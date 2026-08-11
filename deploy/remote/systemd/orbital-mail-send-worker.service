@@ -1,0 +1,17 @@
+[Unit]
+Description=orbital-mail Send Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__REMOTE_USER__
+Group=__REMOTE_GROUP__
+WorkingDirectory=__REMOTE_ROOT__/apps/api
+EnvironmentFile=__REMOTE_ROOT__/apps/api/config/production/app.env
+ExecStart=__REMOTE_ROOT__/apps/api/.venv/bin/python -m workers.mail_send_worker
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

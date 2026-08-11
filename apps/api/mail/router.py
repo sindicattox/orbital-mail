@@ -7,7 +7,17 @@ from sqlalchemy.orm import Session
 from core.auth import AuthContext, get_auth_context
 from core.database import get_db
 from core.settings import get_settings
-from mail.queue import clear_pending_queue, count_eligible, dispatch_preview, ensure_campaign, insert_batch, list_recipients, queue_summary
+from mail.queue import (
+    TEST_CAMPAIGN_PATTERN,
+    TEST_CAMPAIGN_PREFIX,
+    clear_pending_queue,
+    count_eligible,
+    dispatch_preview,
+    ensure_campaign,
+    insert_batch,
+    list_recipients,
+    queue_summary,
+)
 from mail.schemas import (
     CampaignCreate, CampaignDetail, CampaignSummary, CampaignUpdate,
     QueuePrepareBatch, QueuePrepareStart,
@@ -31,13 +41,49 @@ SELECT
 FROM email_campaign
 '''
 
+TECHNICAL_CAMPAIGN_FIELDS = ('internal_name', 'body_text', 'sender_name', 'sender_email', 'reply_to')
 
-def _campaign_or_404(db: Session, campaign_id: int, tenant_code: str) -> dict:
+
+def _campaign_write_values(payload: CampaignCreate | CampaignUpdate, auth: AuthContext, current: dict | None = None) -> dict:
+    values = payload.model_dump(mode='json')
+    if auth.is_dev:
+        if not values.get('internal_name') or not values.get('sender_name') or not values.get('sender_email'):
+            raise HTTPException(status_code=422, detail='Informe nome interno, nome e e-mail do remetente.')
+        return values
+
+    if current is not None:
+        for field in TECHNICAL_CAMPAIGN_FIELDS:
+            values[field] = current.get(field)
+        return values
+
+    settings = get_settings()
+    sender_email = str(settings.mail_from_address or '').strip()
+    if not sender_email:
+        raise HTTPException(status_code=503, detail='Configuração ausente: EMAIL_FROM_ADDRESS.')
+    values.update({
+        'internal_name': values['subject'].strip(),
+        'body_text': None,
+        'sender_name': str(settings.mail_from_name or '').strip() or 'Orbital Mail',
+        'sender_email': sender_email,
+        'reply_to': str(settings.mail_reply_to or '').strip() or None,
+    })
+    return values
+
+
+def _campaign_or_404(
+    db: Session,
+    campaign_id: int,
+    tenant_code: str,
+    include_test_campaigns: bool = True,
+) -> dict:
     row = db.execute(
         text(CAMPAIGN_SELECT + ' WHERE id = :id AND tenant_code = :tenant_code'),
         {'id': campaign_id, 'tenant_code': tenant_code},
     ).mappings().one_or_none()
-    if row is None:
+    if row is None or (
+        not include_test_campaigns
+        and str(row.get('internal_name') or '').startswith(TEST_CAMPAIGN_PREFIX)
+    ):
         raise HTTPException(status_code=404, detail='Campanha não encontrada.')
     return dict(row)
 
@@ -48,14 +94,18 @@ def overview(
     auth: AuthContext = Depends(get_auth_context),
 ):
     auth.require_module_access()
-    row = db.execute(text('''
+    visibility_sql = '' if auth.is_dev else " AND NVL(internal_name, '') NOT LIKE :test_campaign_pattern"
+    params = {'tenant_code': auth.tenant_code}
+    if not auth.is_dev:
+        params['test_campaign_pattern'] = TEST_CAMPAIGN_PATTERN
+    row = db.execute(text(f'''
         SELECT
             COUNT(*) AS campaigns,
             SUM(CASE WHEN LOWER(status) = 'draft' THEN 1 ELSE 0 END) AS drafts,
             SUM(CASE WHEN LOWER(status) = 'completed' THEN 1 ELSE 0 END) AS sent
         FROM email_campaign
-        WHERE tenant_code = :tenant_code
-    '''), {'tenant_code': auth.tenant_code}).mappings().one()
+        WHERE tenant_code = :tenant_code{visibility_sql}
+    '''), params).mappings().one()
     return {
         'campaigns': int(row['campaigns'] or 0),
         'drafts': int(row['drafts'] or 0),
@@ -71,13 +121,14 @@ def get_dispatch_preview(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require_module_access()
+    auth.require_dev()
     page = max(page, 1)
     page_size = min(max(page_size, 10), 500)
-    result = dispatch_preview(db, auth.tenant_code, page, page_size, search)
+    result = dispatch_preview(db, auth.tenant_code, page, page_size, search, auth.is_dev)
     settings = get_settings()
     result['send_enabled'] = bool(settings.mail_send_enabled)
     result['provider'] = settings.mail_provider
+    result['is_dev'] = auth.is_dev
     return result
 
 
@@ -87,10 +138,14 @@ def list_campaigns(
     auth: AuthContext = Depends(get_auth_context),
 ):
     auth.require_module_access()
-    rows = db.execute(text(CAMPAIGN_SELECT + '''
-        WHERE tenant_code = :tenant_code
+    visibility_sql = '' if auth.is_dev else " AND NVL(internal_name, '') NOT LIKE :test_campaign_pattern"
+    params = {'tenant_code': auth.tenant_code}
+    if not auth.is_dev:
+        params['test_campaign_pattern'] = TEST_CAMPAIGN_PATTERN
+    rows = db.execute(text(CAMPAIGN_SELECT + f'''
+        WHERE tenant_code = :tenant_code{visibility_sql}
         ORDER BY NVL(updated_at, created_at) DESC, id DESC
-    '''), {'tenant_code': auth.tenant_code}).mappings()
+    '''), params).mappings()
     return [dict(row) for row in rows]
 
 
@@ -101,12 +156,7 @@ def get_campaign(
     auth: AuthContext = Depends(get_auth_context),
 ):
     auth.require_module_access()
-    row = db.execute(text(CAMPAIGN_SELECT + '''
-        WHERE id = :id AND tenant_code = :tenant_code
-    '''), {'id': campaign_id, 'tenant_code': auth.tenant_code}).mappings().one_or_none()
-    if row is None:
-        raise HTTPException(status_code=404, detail='Campanha não encontrada.')
-    return dict(row)
+    return _campaign_or_404(db, campaign_id, auth.tenant_code, auth.is_dev)
 
 
 @router.post('/campaigns', response_model=CampaignDetail, status_code=status.HTTP_201_CREATED)
@@ -116,7 +166,7 @@ def create_campaign(
     auth: AuthContext = Depends(get_auth_context),
 ):
     auth.require_module_access()
-    values = payload.model_dump(mode='json')
+    values = _campaign_write_values(payload, auth)
     db.execute(text('''
         INSERT INTO email_campaign (
             tenant_code,
@@ -161,17 +211,12 @@ def update_campaign(
     auth: AuthContext = Depends(get_auth_context),
 ):
     auth.require_module_access()
-    current = db.execute(text('''
-        SELECT LOWER(status)
-        FROM email_campaign
-        WHERE id = :id AND tenant_code = :tenant_code
-    '''), {'id': campaign_id, 'tenant_code': auth.tenant_code}).scalar_one_or_none()
-    if current is None:
-        raise HTTPException(status_code=404, detail='Campanha não encontrada.')
+    current_campaign = _campaign_or_404(db, campaign_id, auth.tenant_code, auth.is_dev)
+    current = str(current_campaign.get('status') or 'draft').lower()
     if current in {'sending', 'completed'}:
         raise HTTPException(status_code=409, detail='Não é possível alterar uma campanha em envio ou já enviada.')
 
-    values = payload.model_dump(mode='json')
+    values = _campaign_write_values(payload, auth, current_campaign)
     result = db.execute(text('''
         UPDATE email_campaign
         SET internal_name = :internal_name,
@@ -200,13 +245,8 @@ def delete_campaign(
     auth: AuthContext = Depends(get_auth_context),
 ):
     auth.require_module_access()
-    current = db.execute(text('''
-        SELECT LOWER(status)
-        FROM email_campaign
-        WHERE id = :id AND tenant_code = :tenant_code
-    '''), {'id': campaign_id, 'tenant_code': auth.tenant_code}).scalar_one_or_none()
-    if current is None:
-        raise HTTPException(status_code=404, detail='Campanha não encontrada.')
+    current_campaign = _campaign_or_404(db, campaign_id, auth.tenant_code, auth.is_dev)
+    current = str(current_campaign.get('status') or 'draft').lower()
     if current not in {'draft', 'ready', 'error', 'paused'}:
         raise HTTPException(status_code=409, detail='Não é possível remover uma campanha em envio ou já enviada.')
 
@@ -223,7 +263,7 @@ def recipient_filters(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require_module_access()
+    auth.require_dev()
     associative = db.execute(text('''
         SELECT code, name FROM br_situacao_associativa
          WHERE active = 1 ORDER BY name
@@ -256,8 +296,8 @@ def campaign_recipients(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require_module_access()
-    ensure_campaign(db, campaign_id, auth.tenant_code)
+    auth.require_dev()
+    ensure_campaign(db, campaign_id, auth.tenant_code, auth.is_dev)
     page = max(page, 1)
     page_size = min(max(page_size, 10), 200)
     return list_recipients(db, campaign_id, auth.tenant_code, page, page_size, search, status_filter)
@@ -269,8 +309,8 @@ def get_campaign_queue(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require_module_access()
-    ensure_campaign(db, campaign_id, auth.tenant_code)
+    auth.require_dev()
+    ensure_campaign(db, campaign_id, auth.tenant_code, auth.is_dev)
     return queue_summary(db, campaign_id, auth.tenant_code)
 
 
@@ -281,8 +321,8 @@ def start_queue_preparation(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require_module_access()
-    ensure_campaign(db, campaign_id, auth.tenant_code)
+    auth.require_dev()
+    ensure_campaign(db, campaign_id, auth.tenant_code, auth.is_dev)
     current = queue_summary(db, campaign_id, auth.tenant_code)
     if current['total'] > 0:
         raise HTTPException(
@@ -313,8 +353,8 @@ def prepare_queue_batch(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require_module_access()
-    ensure_campaign(db, campaign_id, auth.tenant_code)
+    auth.require_dev()
+    ensure_campaign(db, campaign_id, auth.tenant_code, auth.is_dev)
     before = queue_summary(db, campaign_id, auth.tenant_code)['total']
     insert_batch(
         db, campaign_id, auth.tenant_code, payload.associative_code, payload.functional_code,
@@ -338,7 +378,7 @@ def delete_campaign_queue(
     db: Session = Depends(get_db),
     auth: AuthContext = Depends(get_auth_context),
 ):
-    auth.require_module_access()
-    ensure_campaign(db, campaign_id, auth.tenant_code)
+    auth.require_dev()
+    ensure_campaign(db, campaign_id, auth.tenant_code, auth.is_dev)
     removed = clear_pending_queue(db, campaign_id, auth.tenant_code)
     return {'removed': removed}

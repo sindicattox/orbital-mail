@@ -10,8 +10,10 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-echo "Preparando e iniciando API e Web locais..."
+echo "Preparando e iniciando API, workers e Web locais..."
 
+"$SCRIPT_DIR/workers.sh" &
+PIDS+=("$!")
 "$SCRIPT_DIR/setup-api.sh" &
 PIDS+=("$!")
 "$SCRIPT_DIR/setup-web.sh" &

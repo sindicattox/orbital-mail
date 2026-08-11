@@ -15,10 +15,12 @@ def test_dedupe_emails_preserves_first_order():
 def test_loop_page_and_api_contract():
     page = (ROOT / 'apps/web/src/pages/teste-loop/index.astro').read_text()
     service = (API / 'mail/test_loop_service.py').read_text()
+    worker_service = (API / 'mail/delivery_worker_service.py').read_text()
     assert '/test-loop/start' in service
-    assert 'FOR UPDATE SKIP LOCKED' in service
+    assert 'MailDeliveryWorkerService' in service
+    assert 'FOR UPDATE OF q.status SKIP LOCKED' in worker_service
     assert 'ThreadPoolExecutor' in service
-    assert 'EMAIL_QUEUE'.lower() in service.lower()
+    assert 'EMAIL_QUEUE'.lower() in worker_service.lower()
     assert '30 e-mails e 3 repetições' in page
     assert '90 envios' in page
     assert '/destinatarios' in page
@@ -48,7 +50,7 @@ def test_test_email_allowlist_is_a_separate_private_file():
 
 
 def test_reservation_applies_execution_options_before_execute():
-    service = (API / 'mail/test_loop_service.py').read_text()
+    service = (API / 'mail/delivery_worker_service.py').read_text()
     assert 'statement = text(' in service
     assert ').execution_options(stream_results=True, yield_per=1)' in service
     assert ').execution_options(stream_results=True, yield_per=1).mappings()' not in service
@@ -73,7 +75,9 @@ def test_test_campaign_respects_real_oracle_unique_constraint():
 def test_campaign_and_queue_are_atomic_and_errors_are_controlled():
     service = (API / 'mail/test_loop_service.py').read_text()
     assert 'except IntegrityError as exc:' in service
-    assert service.count('db.rollback()') >= 4
+    worker_service = (API / 'mail/delivery_worker_service.py').read_text()
+    assert service.count('db.rollback()') >= 3
+    assert 'self.db.rollback()' in worker_service
     assert 'Não foi possível gerar uma identificação única' in service
     assert 'Não foi possível criar a campanha e a fila de teste no Oracle.' in service
     # O gerenciador só é registrado depois que campanha e fila foram confirmadas.
@@ -84,3 +88,19 @@ def test_private_email_file_is_never_shipped_in_remote_deploy():
     deploy = (ROOT / "deploy/remote/setup.sh").read_text(encoding="utf-8")
     assert "--exclude='apps/api/.emails_para_teste'" in deploy
     assert (API / '.emails_para_teste.example').exists()
+
+
+def test_loop_is_dev_only():
+    page = (ROOT / 'apps/web/src/pages/teste-loop/index.astro').read_text()
+    service = (API / 'mail/test_loop_service.py').read_text()
+    assert 'devOnly' in page
+    assert service.count('auth.require_dev()') >= 4
+
+
+def test_test_campaigns_are_hidden_from_non_dev_views():
+    router = (API / 'mail/router.py').read_text()
+    queue = (API / 'mail/queue.py').read_text()
+    assert 'TEST_CAMPAIGN_PATTERN' in router
+    assert 'auth.is_dev' in router
+    assert 'include_test_campaigns' in queue
+    assert "NVL(c.internal_name, '') NOT LIKE :test_campaign_pattern" in queue

@@ -21,6 +21,7 @@ def test_remote_setup_owns_and_installs_mail_services():
 def test_remote_services_belong_to_orbital_mail():
     api = (SYSTEMD / "orbital-mail-api.service").read_text()
     web = (SYSTEMD / "orbital-mail-web.service").read_text()
+    worker = (SYSTEMD / "orbital-mail-send-worker.service").read_text()
 
     assert "__REMOTE_ROOT__/apps/api/config/production/app.env" in api
     assert "__REMOTE_ROOT__/apps/web/config/production/app.env" in web
@@ -28,7 +29,8 @@ def test_remote_services_belong_to_orbital_mail():
     assert "--workers 2" in api
     assert "/usr/bin/node __REMOTE_ROOT__/apps/web/dist/server/entry.mjs" in web
     assert "orbital-mail-api.service" in web
-    assert not list(SYSTEMD.glob("*worker*.service"))
+    assert "-m workers.mail_send_worker" in worker
+    assert "Restart=always" in worker
 
 
 def test_remote_scripts_use_configured_service_and_port():

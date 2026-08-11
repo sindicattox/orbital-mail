@@ -13,19 +13,30 @@ class OrbitalMail extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.selectedCampaignId = null;
     this.redirecting = false;
+    this.isDev = window.orbitalMailAuthContext?.is_dev === true;
+    this.authContextHandler = (event) => {
+      this.isDev = event.detail?.is_dev === true;
+      if (this.isDev) this.loadRecipientFilters();
+      this.loadCampaigns();
+    };
   }
 
   connectedCallback() {
     this.render();
     this.bindEvents();
     this.showSavedMessage();
-    this.loadRecipientFilters();
+    document.addEventListener('orbital-mail-auth-context', this.authContextHandler);
+    if (this.isDev) this.loadRecipientFilters();
     this.loadCampaigns();
+  }
+
+  disconnectedCallback() {
+    document.removeEventListener('orbital-mail-auth-context', this.authContextHandler);
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (!this.isConnected || oldValue === newValue || name === 'theme') return;
-    this.loadRecipientFilters();
+    if (this.isDev) this.loadRecipientFilters();
     this.loadCampaigns();
   }
 
@@ -77,7 +88,7 @@ class OrbitalMail extends HTMLElement {
       </section>
 
       <div data-message class="message" hidden></div>
-      <dialog data-queue-dialog class="queue-dialog">
+      <dialog data-queue-dialog class="queue-dialog dev-highlight">
         <form method="dialog" class="queue-card">
           <div class="queue-head">
             <div><h2>Preparar destinatários</h2><p data-queue-campaign-name>Campanha</p></div>
@@ -115,12 +126,13 @@ class OrbitalMail extends HTMLElement {
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Ações</th><th>Nome interno</th><th>Assunto</th><th>Remetente</th><th>Status</th><th>Atualização</th></tr></thead>
-          <tbody data-campaign-rows><tr><td colspan="6" class="empty">Carregando campanhas...</td></tr></tbody>
+          <thead data-campaign-head></thead>
+          <tbody data-campaign-rows></tbody>
         </table>
       </div>
     `;
 
+    this.head = this.shadowRoot.querySelector('[data-campaign-head]');
     this.rows = this.shadowRoot.querySelector('[data-campaign-rows]');
     this.message = this.shadowRoot.querySelector('[data-message]');
     this.queueDialog = this.shadowRoot.querySelector('[data-queue-dialog]');
@@ -168,31 +180,43 @@ class OrbitalMail extends HTMLElement {
   }
 
   async loadCampaigns() {
-    this.rows.innerHTML = '<tr><td colspan="6" class="empty">Carregando campanhas...</td></tr>';
+    const columns = this.isDev ? 6 : 4;
+    this.head.innerHTML = this.isDev
+      ? '<tr><th>Ações</th><th>Nome interno</th><th>Assunto</th><th>Remetente</th><th>Status</th><th>Atualização</th></tr>'
+      : '<tr><th>Ações</th><th>Assunto</th><th>Status</th><th>Atualização</th></tr>';
+    this.rows.innerHTML = `<tr><td colspan="${columns}" class="empty">Carregando campanhas...</td></tr>`;
     try {
       const response = await this.request('/campaigns');
       if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar as campanhas.'));
       const campaigns = await response.json();
       if (!campaigns.length) {
-        this.rows.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma campanha cadastrada.</td></tr>';
+        this.rows.innerHTML = `<tr><td colspan="${columns}" class="empty">Nenhuma campanha cadastrada.</td></tr>`;
         return;
       }
-      this.rows.innerHTML = campaigns.map((campaign) => `
-        <tr>
-          <td class="actions">
-            <a class="icon-button" href="${this.moduleUrl(`/campanhas/${campaign.id}`)}" title="Editar">Editar</a>
-            <a class="icon-button" href="${this.moduleUrl(`/campanhas/${campaign.id}/destinatarios`)}">Ver fila</a>
-            <button class="icon-button" data-queue-id="${campaign.id}" data-name="${escapeHtml(campaign.internal_name)}" type="button">Preparar</button>
-            <button class="icon-button danger" data-delete-id="${campaign.id}" data-name="${escapeHtml(campaign.internal_name)}" type="button">Remover</button>
-          </td>
-          <td><strong>${escapeHtml(campaign.internal_name)}</strong></td>
-          <td>${escapeHtml(campaign.subject)}</td>
-          <td>${escapeHtml(campaign.sender_name || '')}<small>${escapeHtml(campaign.sender_email || '')}</small></td>
-          <td><span class="badge">${escapeHtml(campaign.status)}</span></td>
-          <td>${formatDate(campaign.updated_at || campaign.created_at)}</td>
-        </tr>`).join('');
+      this.rows.innerHTML = campaigns.map((campaign) => {
+        const actions = `
+          <a class="icon-button" href="${this.moduleUrl(`/campanhas/${campaign.id}`)}" title="Editar">Editar</a>
+          ${this.isDev ? `<a class="icon-button dev-action" href="${this.moduleUrl(`/campanhas/${campaign.id}/destinatarios`)}">Ver fila</a>
+          <button class="icon-button dev-action" data-queue-id="${campaign.id}" data-name="${escapeHtml(campaign.internal_name)}" type="button">Preparar</button>` : ''}
+          <button class="icon-button danger" data-delete-id="${campaign.id}" data-name="${escapeHtml(campaign.internal_name)}" type="button">Remover</button>`;
+        return this.isDev ? `
+          <tr>
+            <td class="actions">${actions}</td>
+            <td><strong>${escapeHtml(campaign.internal_name)}</strong></td>
+            <td>${escapeHtml(campaign.subject)}</td>
+            <td>${escapeHtml(campaign.sender_name || '')}<small>${escapeHtml(campaign.sender_email || '')}</small></td>
+            <td><span class="badge">${escapeHtml(campaign.status)}</span></td>
+            <td>${formatDate(campaign.updated_at || campaign.created_at)}</td>
+          </tr>` : `
+          <tr>
+            <td class="actions">${actions}</td>
+            <td>${escapeHtml(campaign.subject)}</td>
+            <td><span class="badge">${escapeHtml(campaign.status)}</span></td>
+            <td>${formatDate(campaign.updated_at || campaign.created_at)}</td>
+          </tr>`;
+      }).join('');
     } catch (error) {
-      this.rows.innerHTML = '<tr><td colspan="6" class="empty">Não foi possível carregar as campanhas.</td></tr>';
+      this.rows.innerHTML = `<tr><td colspan="${columns}" class="empty">Não foi possível carregar as campanhas.</td></tr>`;
       this.showMessage(apiErrors.fromException(error, 'Não foi possível carregar as campanhas.'));
     }
   }

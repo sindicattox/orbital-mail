@@ -7,17 +7,29 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 
-def ensure_campaign(db: Session, campaign_id: int, tenant_code: str) -> None:
-    exists = db.execute(
+TEST_CAMPAIGN_PREFIX = '[TESTE LOOP]'
+TEST_CAMPAIGN_PATTERN = f'{TEST_CAMPAIGN_PREFIX} %'
+
+
+def ensure_campaign(
+    db: Session,
+    campaign_id: int,
+    tenant_code: str,
+    include_test_campaigns: bool = True,
+) -> None:
+    row = db.execute(
         text('''
-            SELECT 1
+            SELECT internal_name
               FROM email_campaign
              WHERE id = :campaign_id
                AND LOWER(tenant_code) = LOWER(:tenant_code)
         '''),
         {'campaign_id': campaign_id, 'tenant_code': tenant_code},
-    ).scalar_one_or_none()
-    if exists is None:
+    ).mappings().one_or_none()
+    if row is None or (
+        not include_test_campaigns
+        and str(row.get('internal_name') or '').startswith(TEST_CAMPAIGN_PREFIX)
+    ):
         raise HTTPException(status_code=404, detail='Campanha não encontrada.')
 
 
@@ -305,6 +317,7 @@ def dispatch_preview(
     page: int,
     page_size: int,
     search: str | None = None,
+    include_test_campaigns: bool = True,
 ) -> dict:
     """Lista somente mensagens que ainda podem ser disparadas pelo worker do tenant autenticado."""
     filters = [
@@ -313,6 +326,9 @@ def dispatch_preview(
         "LOWER(NVL(c.status, 'draft')) IN ('ready', 'sending', 'paused', 'error', 'draft')",
     ]
     params: dict[str, object] = {'tenant_code': tenant_code}
+    if not include_test_campaigns:
+        filters.append("NVL(c.internal_name, '') NOT LIKE :test_campaign_pattern")
+        params['test_campaign_pattern'] = TEST_CAMPAIGN_PATTERN
     if search:
         filters.append("(LOWER(q.email) LIKE :search OR LOWER(q.name) LIKE :search OR LOWER(c.subject) LIKE :search OR LOWER(c.internal_name) LIKE :search)")
         params['search'] = f"%{search.strip().lower()}%"

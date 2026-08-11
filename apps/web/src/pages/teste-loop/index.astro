@@ -4,7 +4,7 @@ import OrbitalHtmlEditor from '../../components/orbital-html-editor/OrbitalHtmlE
 import { apiUrl } from '../../config/api-url';
 const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
-<AppLayout title="Teste de loop" description="Teste controlado da fila e dos workers">
+<AppLayout title="Teste de loop" description="Teste controlado da fila e dos workers" devOnly>
   <section class="page-head campaign-page-head">
     <div><h1>Teste controlado de loop</h1><p>Cria uma campanha de teste, adiciona mensagens na EMAIL_QUEUE e processa com workers concorrentes.</p></div>
     <a class="button secondary" href={`${moduleBase}/`}>Voltar</a>
@@ -59,7 +59,7 @@ const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
   </section>
 </AppLayout>
 
-<script define:vars={{ apiUrl }}>
+<script is:inline define:vars={{ apiUrl }}>
   const form = document.querySelector('#loopForm');
   const message = document.querySelector('#message');
   const startButton = document.querySelector('#startButton');

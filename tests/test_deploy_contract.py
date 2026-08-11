@@ -14,7 +14,7 @@ def test_local_contract():
     setup = text(LOCAL / "setup.sh")
     assert '"$SCRIPT_DIR/setup-api.sh"' in setup
     assert '"$SCRIPT_DIR/setup-web.sh"' in setup
-    assert "workers.sh" not in setup
+    assert '"$SCRIPT_DIR/workers.sh"' in setup
     assert '"http://127.0.0.1:${API_PORT}/api/health"' in text(LOCAL / "start-api.sh")
     assert "WEB_PORT=\"$(sed -n 's/^APP_PORT=//p' \"$APP_CONFIG\")\"" in text(LOCAL / "start-web.sh")
     assert 'http://127.0.0.1:${WEB_PORT}/orbital-mail/' in text(LOCAL / "start-web.sh")
@@ -28,10 +28,11 @@ def test_remote_contract():
     assert '"$SCRIPT_DIR/setup-api.sh"' in setup
     assert '"$SCRIPT_DIR/setup-web.sh"' in setup
     assert "wallet-upload.sh" not in setup
-    assert "workers.sh" not in setup
+    assert '"$SCRIPT_DIR/workers.sh"' in setup
     assert (SYSTEMD / "install.sh").is_file()
     assert (SYSTEMD / "orbital-mail-api.service").is_file()
     assert (SYSTEMD / "orbital-mail-web.service").is_file()
+    assert (SYSTEMD / "orbital-mail-send-worker.service").is_file()
 
 
 def test_config_tree_and_controlled_removals():

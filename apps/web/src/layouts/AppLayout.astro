@@ -5,8 +5,8 @@ import '../styles/ui.css';
 import { apiUrl } from '../config/api-url';
 import orbitalMailAuthScript from '../assets/auth/orbital-mail-auth.js?raw';
 
-interface Props { title: string; description?: string; }
-const { title, description = '' } = Astro.props;
+interface Props { title: string; description?: string; devOnly?: boolean; }
+const { title, description = '', devOnly = false } = Astro.props;
 const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 const mailItems = [
@@ -27,14 +27,19 @@ const mailItems = [
   <title>{title} · Orbital Mail</title>
   <script is:inline src={`${moduleBase}/scripts/api-errors.js`}></script>
 </head>
-<body data-api-url={apiUrl} data-orbital-home-url={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}>
+<body
+  data-api-url={apiUrl}
+  data-orbital-home-url={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}
+  data-module-base={moduleBase}
+  data-dev-only-page={devOnly ? 'true' : undefined}
+>
   <div class="app-shell">
     <OrbitalTopBar
       brandHref={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}
       moduleLabel="Mail"
       items={mailItems}
     />
-    <main class="app-main"><slot /></main>
+    <main class:list={["app-main", { "dev-only": devOnly, "dev-highlight-page": devOnly }]}><slot /></main>
   </div>
   <script is:inline set:html={orbitalMailAuthScript}></script>
 </body>

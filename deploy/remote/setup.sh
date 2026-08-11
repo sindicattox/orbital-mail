@@ -39,6 +39,9 @@ rsync -az --delete --itemize-changes \
     "$ROOT_DIR/" "$REMOTE_HOST:$REMOTE_ROOT/"
 
 echo "Código enviado."
+"$SCRIPT_DIR/workers.sh" &
+WORKERS_PID="$!"
 "$SCRIPT_DIR/setup-api.sh"
+wait "$WORKERS_PID"
 "$SCRIPT_DIR/setup-web.sh"
 echo "Deploy remoto concluído."

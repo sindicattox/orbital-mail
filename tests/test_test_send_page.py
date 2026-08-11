@@ -11,11 +11,22 @@ def test_test_send_page_reuses_editor_and_has_both_providers():
     assert "/test-send" in page
 
 
-def test_home_and_navigation_link_to_test_send():
+def test_home_and_navigation_link_to_test_send_as_dev_only():
     home = (ROOT / "apps/web/src/pages/index.astro").read_text()
     layout = (ROOT / "apps/web/src/layouts/AppLayout.astro").read_text()
+    css = (ROOT / "apps/web/src/styles/global.css").read_text()
     assert 'href={`${moduleBase}/teste-envio`}' in home
     assert "href: `${moduleBase}/teste-envio`" in layout
+    assert 'dev-only dev-highlight' in home
+    assert 'data-is-dev="true"' in css
+    assert 'a[href*="/teste-envio"]' in css
+
+
+def test_test_send_page_is_dev_only_and_api_requires_dev():
+    page = (ROOT / "apps/web/src/pages/teste-envio/index.astro").read_text()
+    service = (ROOT / "apps/api/mail/delivery_test_service.py").read_text()
+    assert '<AppLayout title="Teste de envio" devOnly>' in page
+    assert 'context.require_dev()' in service
 
 
 def test_env_documents_both_providers_and_send_lock():

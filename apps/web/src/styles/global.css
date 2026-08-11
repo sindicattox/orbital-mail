@@ -70,3 +70,23 @@
 .queue-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 560px) { .queue-summary { grid-template-columns: repeat(2, 1fr); } }
 
+
+
+/* Recursos técnicos: invisíveis para usuários normais e destacados para is_dev. */
+:root{--dev-danger:#d92d20;--dev-danger-soft:rgba(217,45,32,.10)}
+.dev-only{display:none!important}
+body[data-is-dev="true"] .dev-only{display:block!important}
+body[data-is-dev="true"] .dev-highlight,
+body[data-is-dev="true"] .dev-highlight-page{border:2px solid var(--dev-danger)!important;box-shadow:0 0 0 3px var(--dev-danger-soft)}
+body:not([data-is-dev="true"]) a[href*="/teste-envio"],
+body:not([data-is-dev="true"]) a[href*="/teste-loop"],
+body:not([data-is-dev="true"]) a[href*="/fila-envios"],
+body:not([data-is-dev="true"]) a[href*="/dev/"]{display:none!important}
+body[data-is-dev="true"] a[href*="/teste-envio"],
+body[data-is-dev="true"] a[href*="/teste-loop"],
+body[data-is-dev="true"] a[href*="/fila-envios"],
+body[data-is-dev="true"] a[href*="/dev/"]{box-shadow:inset 0 0 0 1px var(--dev-danger);border-radius:.45rem}
+.dev-highlight-page{margin-top:1.5rem;margin-bottom:1.5rem}
+
+body[data-is-dev="true"] .dev-field-group{padding:.75rem;border-radius:.65rem}
+body[data-is-dev="true"] .dev-field-group label+label{margin-top:.8rem}

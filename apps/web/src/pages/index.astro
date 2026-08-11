@@ -12,13 +12,13 @@ const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
     <article class="card"><span class="muted">Rascunhos</span><div class="metric">0</div></article>
     <article class="card"><span class="muted">Enviadas</span><div class="metric">0</div></article>
   </section>
-  <section class="card" style="margin-top:1rem">
+  <section class="card dev-only dev-highlight" style="margin-top:1rem">
     <h2 style="margin-top:0">Teste do provedor de envio</h2>
     <p class="muted">Valide SMTP2GO ou SMTP tradicional com o mesmo editor HTML usado nas campanhas, sem criar fila e sem alterar campanhas.</p>
     <a class="button" href={`${moduleBase}/teste-envio`}>Abrir teste de envio</a>
     <a class="button secondary" href={`${moduleBase}/teste-loop`} style="margin-left:.5rem">Testar loop e workers</a>
   </section>
-  <section class="card" style="margin-top:1rem">
+  <section class="card dev-only dev-highlight" style="margin-top:1rem">
     <h2 style="margin-top:0">Estrutura inicial pronta</h2>
     <p class="muted">O Orbital Mail possui banco e dados próprios. O envio permanece bloqueado até configurar um provedor e liberar EMAIL_SEND_ENABLED.</p>
   </section>

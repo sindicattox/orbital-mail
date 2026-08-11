@@ -11,6 +11,7 @@ interface Props {
   minHeight?: string;
 }
 
+
 const {
   name = 'body_html',
   id = 'bodyHtmlEditor',
@@ -20,6 +21,8 @@ const {
   value = '',
   minHeight = '360px',
 } = Astro.props;
+
+const editorRuntimeTag = '<script src="/orbital-mail/components/orbital-html-editor/editor.js"></script>';
 ---
 
 <label class="orbital-editor-label" for={`${id}-content`}>{label}</label>
@@ -60,6 +63,4 @@ const {
   <textarea name={name} data-editor-value hidden>{value}</textarea>
 </orbital-html-editor>
 
-<script>
-  import './editor.js';
-</script>
+<Fragment set:html={editorRuntimeTag} />

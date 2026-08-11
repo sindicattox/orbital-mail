@@ -18,5 +18,5 @@ set -euo pipefail
 ROOT_DIR="$1"
 cd "$ROOT_DIR"
 [[ -x apps/api/.venv/bin/pytest ]] || { echo "Execute ./deploy/remote/setup-api.sh primeiro." >&2; exit 1; }
-apps/api/.venv/bin/pytest -q tests
+PYTHONPATH="$ROOT_DIR/apps/api${PYTHONPATH:+:$PYTHONPATH}" apps/api/.venv/bin/pytest -q tests
 REMOTE

@@ -164,3 +164,11 @@ def check_database_health() -> dict:
             "latency_ms": round((monotonic() - started_at) * 1000, 2),
             "error_type": type(error).__name__,
         }
+
+
+def close_database_engine() -> None:
+    global _engine, _session_factory
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+    _session_factory = None
