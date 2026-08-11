@@ -8,9 +8,9 @@ const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
     <a class="button" href={`${moduleBase}/campanhas/nova`}>Nova campanha</a>
   </section>
   <section class="grid">
-    <article class="card"><span class="muted">Campanhas</span><div class="metric">0</div></article>
-    <article class="card"><span class="muted">Rascunhos</span><div class="metric">0</div></article>
-    <article class="card"><span class="muted">Enviadas</span><div class="metric">0</div></article>
+    <article class="card"><span class="muted">Campanhas</span><div id="overviewCampaigns" class="metric">0</div></article>
+    <article class="card"><span class="muted">Rascunhos</span><div id="overviewDrafts" class="metric">0</div></article>
+    <article class="card"><span class="muted">Enviadas</span><div id="overviewSent" class="metric">0</div></article>
   </section>
   <section class="card dev-only dev-highlight" style="margin-top:1rem">
     <h2 style="margin-top:0">Teste do provedor de envio</h2>
@@ -23,3 +23,28 @@ const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
     <p class="muted">O Orbital Mail possui banco e dados próprios. O envio permanece bloqueado até configurar um provedor e liberar EMAIL_SEND_ENABLED.</p>
   </section>
 </AppLayout>
+
+<script>
+  import { apiUrl } from '../config/api-url';
+
+  const setMetric = (id, value) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = String(value ?? 0);
+  };
+
+  fetch(`${apiUrl}/overview`, { cache: 'no-store' })
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then((overview) => {
+      setMetric('overviewCampaigns', overview.campaigns);
+      setMetric('overviewDrafts', overview.drafts);
+      setMetric('overviewSent', overview.sent);
+    })
+    .catch(() => {
+      setMetric('overviewCampaigns', '—');
+      setMetric('overviewDrafts', '—');
+      setMetric('overviewSent', '—');
+    });
+</script>

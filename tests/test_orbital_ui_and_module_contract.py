@@ -4,15 +4,19 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "apps/web"
 
 
-def test_mail_uses_shared_orbital_top_bar():
+def test_mail_uses_shared_orbital_top_bar_and_sidebar():
     package = (WEB / "package.json").read_text()
     layout = (WEB / "src/layouts/AppLayout.astro").read_text()
     css = (WEB / "src/styles/global.css").read_text()
 
     assert '"@orbital/ui": "file:../../../orbital-ui"' in package
-    assert "import { OrbitalTopBar } from '@orbital/ui';" in layout
+    assert "import { OrbitalSidebar, OrbitalTopBar } from '@orbital/ui';" in layout
     assert '<OrbitalTopBar' in layout
+    assert '<OrbitalSidebar' in layout
+    assert 'items={mailItems}' in layout
     assert 'moduleLabel="Mail"' in layout
+    topbar = layout[layout.index('<OrbitalTopBar'):layout.index('/>', layout.index('<OrbitalTopBar')) + 2]
+    assert 'items={mailItems}' not in topbar
     assert 'class="app-header"' not in layout
     assert '.app-header' not in css
 
@@ -41,3 +45,19 @@ def test_remote_deploy_uses_standard_scripts_and_keeps_env_remote():
     for name in ('setup-api.sh', 'setup-web.sh', 'setup.sh', 'start-api.sh', 'start-web.sh', 'start.sh', 'test.sh'):
         assert (ROOT / 'deploy/local' / name).exists()
         assert (remote / name).exists()
+
+
+def test_mail_loads_orbital_tokens_explicitly_before_module_css():
+    layout = (WEB / "src/layouts/AppLayout.astro").read_text()
+    tokens_pos = layout.index("import '@orbital/ui/tokens.css';")
+    global_pos = layout.index("import '../styles/global.css';")
+    ui_pos = layout.index("import '../styles/ui.css';")
+    assert tokens_pos < global_pos < ui_pos
+
+
+def test_primary_buttons_use_orbital_contrast_contract():
+    css = (WEB / "src/styles/global.css").read_text()
+    assert 'background:var(--orbital-primary)' in css
+    assert 'color:var(--orbital-on-primary)' in css
+    assert 'border:1px solid var(--orbital-primary)' in css
+    assert 'background:var(--primary);color:var(--orbital-on-primary)' not in css

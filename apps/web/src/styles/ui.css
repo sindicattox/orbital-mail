@@ -1,12 +1,12 @@
 /* Controles compartilhados por formulários, filtros e listas. */
-label{display:grid;gap:.35rem;font-size:.84rem;font-weight:650;color:#344054}
-input,select,textarea{width:100%;min-height:38px;border:1px solid #cfd8e5;border-radius:.5rem;padding:.58rem .68rem;font:inherit;background:#fff;color:#172033}
+label{display:grid;gap:.35rem;font-size:.84rem;font-weight:650;color:var(--orbital-text)}
+input,select,textarea{width:100%;min-height:38px;border:1px solid var(--orbital-input-border);border-radius:.5rem;padding:.58rem .68rem;font:inherit;background:var(--orbital-input-bg);color:var(--orbital-input-text)}
 textarea{resize:vertical}
-input:focus,select:focus,textarea:focus{outline:3px solid #dbeafe;border-color:#175cd3}
-input:disabled,select:disabled,textarea:disabled{background:#f2f4f7;color:#667085}
+input:focus,select:focus,textarea:focus{outline:3px solid color-mix(in srgb,var(--orbital-focus) 28%,transparent);border-color:var(--orbital-focus)}
+input:disabled,select:disabled,textarea:disabled{background:var(--orbital-muted-surface);color:var(--orbital-muted-text)}
 .list-filters{display:grid;grid-template-columns:minmax(240px,1fr) 190px 110px auto;align-items:end;gap:.75rem;margin-bottom:1rem;padding:.85rem}
 .data-table th{white-space:nowrap}.data-table td{vertical-align:middle}.error-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pagination-bar{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:.8rem;color:var(--muted);font-size:.86rem}.pagination-bar>div{display:flex;gap:.5rem}
-.status-badge{display:inline-flex;border-radius:999px;padding:.25rem .55rem;background:#f2f4f7;font-size:.76rem;white-space:nowrap}.status-sent{background:#ecfdf3;color:#067647}.status-error,.status-invalid_email{background:#fef3f2;color:#b42318}.status-processing{background:#eff8ff;color:#175cd3}
+.status-badge{display:inline-flex;border-radius:999px;padding:.25rem .55rem;background:var(--orbital-muted-surface);font-size:.76rem;white-space:nowrap}.status-sent{background:var(--orbital-muted-surface);color:var(--orbital-success)}.status-error,.status-invalid_email{background:var(--orbital-muted-surface);color:var(--orbital-danger)}.status-processing{background:var(--orbital-muted-surface);color:var(--orbital-primary)}
 .compact-grid{gap:.75rem}
 @media(max-width:800px){.list-filters{grid-template-columns:1fr}.pagination-bar{align-items:flex-start;flex-direction:column}}
