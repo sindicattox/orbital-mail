@@ -16,10 +16,10 @@ def test_reference_exists():
 def test_contract_and_wallet_upload_are_app_only():
     assert (APP_ROOT / "deploy/CONTRACT.md").is_file()
     assert not (MAIL_ROOT / "deploy/CONTRACT.md").exists()
-    assert (MAIL_ROOT / "deploy/CONTRACT.md.remover").is_file()
+    assert not (MAIL_ROOT / "deploy/CONTRACT.md.remover").exists()
     assert (APP_ROOT / "deploy/remote/wallet-upload.sh").is_file()
     assert not (MAIL_ROOT / "deploy/remote/wallet-upload.sh").exists()
-    assert (MAIL_ROOT / "deploy/remote/wallet-upload.sh.remover").is_file()
+    assert not (MAIL_ROOT / "deploy/remote/wallet-upload.sh.remover").exists()
     assert (MAIL_ROOT / "deploy/local/workers.sh").is_file()
     assert (MAIL_ROOT / "deploy/remote/workers.sh").is_file()
 

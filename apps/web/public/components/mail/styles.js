@@ -6,12 +6,13 @@ export const mailStyles = `
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
-  .page-head h1 { margin: 0; font-size: 1.55rem; }
+  .page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+  .page-head h1 { margin: 0; font-size: 1.55rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.2; }
   .page-head p { margin: .35rem 0 0; color: var(--orbital-muted-text, #667085); }
   .button { border: 0; border-radius: .55rem; background: var(--orbital-primary, #175cd3); color: #fff; padding: .7rem 1rem; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
   .button.secondary { background: var(--orbital-surface, #fff); color: var(--orbital-text, #344054); border: 1px solid var(--orbital-border, #cfd8e5); }
   .button.danger { color: var(--orbital-danger, #b42318); }
+  .button.danger-solid { background: #d92d20; color: #fff; }
   .button:disabled, button:disabled { opacity: .6; cursor: not-allowed; }
   .table-wrap { background: var(--orbital-surface, #fff); border: 1px solid var(--orbital-border, #dbe3ee); border-radius: .8rem; overflow: auto; }
   table { width: 100%; border-collapse: collapse; }

@@ -7,6 +7,7 @@ def test_test_send_page_reuses_editor_and_has_both_providers():
     page = (ROOT / "apps/web/src/pages/teste-envio/index.astro").read_text()
     assert "OrbitalHtmlEditor" in page
     assert 'value="smtp2go"' in page
+    assert 'value="ses"' in page
     assert 'value="smtp"' in page
     assert "/test-send" in page
 

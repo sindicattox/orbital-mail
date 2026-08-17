@@ -25,7 +25,7 @@ class MailProviderError(RuntimeError):
 
 
 class MailSendPayload(BaseModel):
-    provider: str = Field(pattern="^(smtp2go|smtp)$")
+    provider: str = Field(pattern="^(ses|smtp2go|smtp)$")
     to_email: EmailStr
     to_name: str = Field(default="", max_length=255)
     subject: str = Field(min_length=1, max_length=500)
@@ -200,6 +200,67 @@ def send_smtp2go(payload: MailSendPayload, settings: Settings | None = None) -> 
     )
 
 
+def send_ses(payload: MailSendPayload, settings: Settings | None = None) -> MailSendResponse:
+    settings = settings or get_settings()
+    from_email, from_name, reply_to = _resolve_sender(payload, settings)
+
+    message = EmailMessage()
+    message["From"] = f"{from_name} <{from_email}>"
+    message["To"] = f"{payload.to_name} <{payload.to_email}>" if payload.to_name else str(payload.to_email)
+    message["Subject"] = payload.subject
+    if reply_to:
+        message["Reply-To"] = reply_to
+    for name, value in payload.headers.items():
+        message[name] = value
+    message.set_content(payload.body_text or plain_text(payload.body_html))
+    message.add_alternative(payload.body_html, subtype="html")
+
+    started_at = perf_counter()
+    try:
+        import boto3
+        client = boto3.client("sesv2", region_name=settings.aws_ses_region)
+        response = client.send_email(
+            FromEmailAddress=from_email,
+            Destination={"ToAddresses": [str(payload.to_email)]},
+            Content={"Raw": {"Data": message.as_bytes()}},
+        )
+    except Exception as exc:
+        elapsed_ms = round((perf_counter() - started_at) * 1000, 2)
+        metadata = getattr(exc, "response", None)
+        detail = metadata if isinstance(metadata, dict) else {"error_type": type(exc).__name__, "error": str(exc)}
+        raise MailProviderError(
+            status_code=502,
+            detail={
+                "message": "Amazon SES recusou ou não conseguiu processar a solicitação de envio.",
+                "provider": "ses",
+                "accepted": False,
+                "diagnostic": {
+                    "region": settings.aws_ses_region,
+                    "elapsed_ms": elapsed_ms,
+                    "provider_response": detail,
+                },
+            },
+        ) from exc
+
+    elapsed_ms = round((perf_counter() - started_at) * 1000, 2)
+    metadata = response.get("ResponseMetadata") or {}
+    message_id = response.get("MessageId")
+    return MailSendResponse(
+        ok=True,
+        accepted=True,
+        provider="ses",
+        message="O Amazon SES aceitou a solicitação de envio. Isso ainda não confirma entrega na caixa postal.",
+        provider_message_id=message_id,
+        diagnostic={
+            "http_status": metadata.get("HTTPStatusCode"),
+            "elapsed_ms": elapsed_ms,
+            "request_id": metadata.get("RequestId"),
+            "message_id": message_id,
+            "region": settings.aws_ses_region,
+        },
+    )
+
+
 def send_smtp(payload: MailSendPayload, settings: Settings | None = None) -> MailSendResponse:
     settings = settings or get_settings()
     if not settings.smtp_host:
@@ -314,4 +375,6 @@ def send_provider_message(payload: MailSendPayload, settings: Settings | None = 
     settings = settings or get_settings()
     if payload.provider == "smtp2go":
         return send_smtp2go(payload, settings)
+    if payload.provider == "ses":
+        return send_ses(payload, settings)
     return send_smtp(payload, settings)

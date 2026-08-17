@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     oracle_pool_warn_checkout_seconds: float = Field(5.0, validation_alias="ORACLE_POOL_WARN_CHECKOUT_SECONDS")
 
     mail_provider: str = Field("disabled", validation_alias="EMAIL_PROVIDER")
+    aws_ses_region: str = Field("us-east-1", validation_alias="AWS_SES_REGION")
     mail_send_enabled: bool = Field(False, validation_alias="EMAIL_SEND_ENABLED")
     mail_from_name: str = Field("Orbital Mail", validation_alias="EMAIL_FROM_NAME")
     mail_from_address: str | None = Field(None, validation_alias="EMAIL_FROM_ADDRESS")
@@ -235,14 +236,16 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_mail_provider(self) -> "Settings":
         provider = self.mail_provider.strip().lower()
-        if provider not in {"disabled", "smtp", "smtp2go"}:
-            raise ValueError("EMAIL_PROVIDER deve ser disabled, smtp ou smtp2go.")
+        if provider not in {"disabled", "ses", "smtp", "smtp2go"}:
+            raise ValueError("EMAIL_PROVIDER deve ser disabled, ses, smtp ou smtp2go.")
         self.mail_provider = provider
         if self.mail_send_enabled:
             if provider == "disabled":
                 raise ValueError("EMAIL_PROVIDER não pode ser disabled quando EMAIL_SEND_ENABLED=true.")
             if provider == "smtp2go" and not str(self.smtp2go_api_key or "").strip():
                 raise ValueError("SMTP2GO_API_KEY é obrigatória para EMAIL_PROVIDER=smtp2go.")
+            if provider == "ses" and not str(self.mail_from_address or "").strip():
+                raise ValueError("EMAIL_FROM_ADDRESS é obrigatório para EMAIL_PROVIDER=ses.")
             if provider == "smtp" and not str(self.smtp_host or "").strip():
                 raise ValueError("SMTP_HOST é obrigatório para EMAIL_PROVIDER=smtp.")
         return self

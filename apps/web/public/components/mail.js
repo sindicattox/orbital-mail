@@ -83,7 +83,7 @@ class OrbitalMail extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${mailStyles}</style>
       <section class="page-head">
-        <div><h1>Campanhas</h1><p>Cadastre e mantenha as campanhas salvas no Oracle.</p></div>
+        <div><h1>Campanhas</h1></div>
         <a class="button" data-new-campaign>Nova campanha</a>
       </section>
 
@@ -119,7 +119,9 @@ class OrbitalMail extends HTMLElement {
           <div class="queue-actions">
             <button data-clear-queue class="button secondary danger" type="button" hidden>Limpar fila</button>
             <button class="button secondary" value="cancel">Cancelar</button>
-            <button data-prepare-queue class="button" type="button">Preparar fila</button>
+            <button data-preview-queue class="button secondary" type="button">Pré-visualizar base</button>
+            <button data-prepare-queue class="button" type="button">Preparar fila de teste</button>
+            <button data-start-real-test class="button danger-solid" type="button" hidden>Iniciar teste real</button>
           </div>
         </form>
       </dialog>
@@ -140,7 +142,10 @@ class OrbitalMail extends HTMLElement {
     this.queueFunctional = this.shadowRoot.querySelector('[data-queue-functional]');
     this.queueProfile = this.shadowRoot.querySelector('[data-queue-profile]');
     this.queueTestEmail = this.shadowRoot.querySelector('[data-queue-test-email]');
+    this.previewQueueButton = this.shadowRoot.querySelector('[data-preview-queue]');
     this.prepareQueueButton = this.shadowRoot.querySelector('[data-prepare-queue]');
+    this.startRealTestButton = this.shadowRoot.querySelector('[data-start-real-test]');
+    this.queuePreview = null;
     this.clearQueueButton = this.shadowRoot.querySelector('[data-clear-queue]');
     this.queueProgressBox = this.shadowRoot.querySelector('[data-queue-progress-box]');
     this.queueProgress = this.shadowRoot.querySelector('[data-queue-progress]');
@@ -154,8 +159,13 @@ class OrbitalMail extends HTMLElement {
 
   bindEvents() {
     this.rows.addEventListener('click', (event) => this.handleRowAction(event));
+    this.previewQueueButton.addEventListener('click', () => this.previewQueue());
     this.prepareQueueButton.addEventListener('click', () => this.prepareQueue());
+    this.startRealTestButton.addEventListener('click', () => this.startRealTest());
     this.clearQueueButton.addEventListener('click', () => this.clearQueue());
+    for (const field of [this.queueAssociative, this.queueFunctional, this.queueProfile, this.queueTestEmail]) {
+      field.addEventListener('input', () => { this.queuePreview = null; this.startRealTestButton.hidden = true; });
+    }
   }
 
   showMessage(text, type = 'error') {
@@ -258,7 +268,10 @@ class OrbitalMail extends HTMLElement {
     this.queueFunctional.disabled = false;
     this.queueProfile.disabled = false;
     this.queueTestEmail.disabled = false;
+    this.queuePreview = null;
+    this.previewQueueButton.disabled = false;
     this.prepareQueueButton.disabled = false;
+    this.startRealTestButton.hidden = true;
     this.clearQueueButton.hidden = true;
     this.queueDialog.showModal();
     try {
@@ -276,7 +289,10 @@ class OrbitalMail extends HTMLElement {
       <span><strong>${summary.sent}</strong> enviados</span>
       <span><strong>${summary.errors}</strong> erros</span>`;
     this.clearQueueButton.hidden = summary.total === 0;
+    this.previewQueueButton.disabled = summary.total > 0;
     this.prepareQueueButton.disabled = summary.total > 0;
+    const safeTestEmail = this.queueTestEmail.value.trim().toLowerCase();
+    this.startRealTestButton.hidden = !(summary.total > 0 && summary.pending === summary.total && summary.distinct_emails === 1 && safeTestEmail && summary.single_email === safeTestEmail);
     this.queueAssociative.disabled = summary.total > 0;
     this.queueFunctional.disabled = summary.total > 0;
     this.queueProfile.disabled = summary.total > 0;
@@ -287,6 +303,35 @@ class OrbitalMail extends HTMLElement {
     const response = await this.request(`/campaigns/${this.selectedCampaignId}/queue`);
     if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível consultar a fila.'));
     this.renderQueueSummary(await response.json());
+  }
+
+  async previewQueue() {
+    this.setQueueError();
+    try {
+      const response = await this.request(`/campaigns/${this.selectedCampaignId}/queue/prepare/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          associative_code: this.queueAssociative.value || null,
+          functional_code: this.queueFunctional.value || null,
+          profile_code: this.queueProfile.value || null,
+          test_email: this.queueTestEmail.value.trim() || null,
+        }),
+      });
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível pré-visualizar a base.'));
+      this.queuePreview = await response.json();
+      this.queueProgressBox.hidden = false;
+      this.queueProgress.value = 0;
+      this.queueProgressText.textContent = `${this.queuePreview.target_total} destinatário(s)`;
+      this.queueProgressPercent.textContent = 'Preview';
+      this.queueProgressDetail.textContent = this.queuePreview.test_email
+        ? `Base real preservada; ${this.queuePreview.target_total} mensagem(ns) serão redirecionadas para ${this.queuePreview.test_email}.`
+        : 'Atenção: informe um e-mail de teste antes de preparar a fila.';
+      return this.queuePreview;
+    } catch (error) {
+      this.setQueueError(apiErrors.fromException(error, 'Não foi possível pré-visualizar a base.'));
+      return null;
+    }
   }
 
   async prepareQueue() {
@@ -304,18 +349,9 @@ class OrbitalMail extends HTMLElement {
     this.queueProgressDetail.textContent = 'Contando destinatários...';
 
     try {
-      const startResponse = await this.request(`/campaigns/${this.selectedCampaignId}/queue/prepare/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          associative_code: this.queueAssociative.value || null,
-          functional_code: this.queueFunctional.value || null,
-          profile_code: this.queueProfile.value || null,
-          test_email: this.queueTestEmail.value.trim() || null,
-        }),
-      });
-      if (!startResponse.ok) throw new Error(await apiErrors.fromResponse(startResponse, 'Não foi possível iniciar a preparação da fila.'));
-      const start = await startResponse.json();
+      const start = this.queuePreview || await this.previewQueue();
+      if (!start) throw new Error('Não foi possível obter o preview da base.');
+      if (!start.test_email) throw new Error('Para o workflow DEV real, informe um e-mail de teste antes de preparar a fila.');
 
       const total = start.target_total;
       if (total === 0) {
@@ -368,6 +404,36 @@ class OrbitalMail extends HTMLElement {
     }
   }
 
+  async startRealTest() {
+    const testEmail = this.queueTestEmail.value.trim().toLowerCase();
+    if (!testEmail) return this.setQueueError('Informe o e-mail de teste.');
+    try {
+      const summaryResponse = await this.request(`/campaigns/${this.selectedCampaignId}/queue`);
+      if (!summaryResponse.ok) throw new Error(await apiErrors.fromResponse(summaryResponse, 'Não foi possível validar a fila.'));
+      const summary = await summaryResponse.json();
+      if (!(summary.total > 0 && summary.pending === summary.total && summary.distinct_emails === 1 && summary.single_email === testEmail)) {
+        throw new Error('Trava de segurança: a fila não está 100% redirecionada para o e-mail de teste.');
+      }
+      if (!window.confirm(`Iniciar o workflow real com ${summary.total} mensagem(ns), TODAS para ${testEmail}?`)) return;
+      this.startRealTestButton.disabled = true;
+      const response = await this.request(`/campaigns/${this.selectedCampaignId}/dev-test-send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test_email: testEmail }),
+      });
+      if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível iniciar o teste real.'));
+      const result = await response.json();
+      this.showMessage(`${result.message} Provider: ${result.provider}.`, 'success');
+      this.startRealTestButton.hidden = true;
+      this.clearQueueButton.hidden = true;
+      this.previewQueueButton.disabled = true;
+      this.prepareQueueButton.disabled = true;
+    } catch (error) {
+      this.setQueueError(apiErrors.fromException(error, 'Não foi possível iniciar o teste real.'));
+      this.startRealTestButton.disabled = false;
+    }
+  }
+
   async clearQueue() {
     if (!window.confirm('Limpar todos os destinatários ainda não enviados desta campanha?')) return;
     this.clearQueueButton.disabled = true;
@@ -376,7 +442,9 @@ class OrbitalMail extends HTMLElement {
       const response = await this.request(`/campaigns/${this.selectedCampaignId}/queue`, { method: 'DELETE' });
       if (!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível limpar a fila.'));
       this.queueProgressBox.hidden = true;
+      this.queuePreview = null;
       await this.readQueueSummary();
+      this.previewQueueButton.disabled = false;
       this.prepareQueueButton.disabled = false;
       this.queueAssociative.disabled = false;
       this.queueFunctional.disabled = false;

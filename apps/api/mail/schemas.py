@@ -67,3 +67,7 @@ class QueuePrepareBatch(QueuePrepareStart):
     cutoff: datetime
     target_total: int = Field(ge=0)
     batch_size: int = Field(default=250, ge=10, le=1000)
+
+
+class CampaignDevTestSend(BaseModel):
+    test_email: EmailStr

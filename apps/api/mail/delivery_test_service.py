@@ -7,6 +7,7 @@ from mail.delivery_provider import (
     MailSendPayload,
     MailSendResponse,
     plain_text,
+    send_ses,
     send_smtp,
     send_smtp2go,
 )
@@ -23,6 +24,13 @@ _plain_text = plain_text
 def _send_smtp2go(payload: TestSendPayload) -> TestSendResponse:
     try:
         return send_smtp2go(payload, get_settings())
+    except MailProviderError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+
+def _send_ses(payload: TestSendPayload) -> TestSendResponse:
+    try:
+        return send_ses(payload, get_settings())
     except MailProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
@@ -45,4 +53,6 @@ def send_test_email(payload: TestSendPayload, context: AuthContext = Depends(get
         )
     if payload.provider == "smtp2go":
         return _send_smtp2go(payload)
+    if payload.provider == "ses":
+        return _send_ses(payload)
     return _send_smtp(payload)

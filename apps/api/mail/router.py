@@ -19,9 +19,11 @@ from mail.queue import (
     queue_summary,
 )
 from mail.schemas import (
-    CampaignCreate, CampaignDetail, CampaignSummary, CampaignUpdate,
+    CampaignCreate, CampaignDetail, CampaignSummary, CampaignUpdate, CampaignDevTestSend,
     QueuePrepareBatch, QueuePrepareStart,
 )
+from mail.runtime_config import effective_provider, provider_status
+from mail.image_storage import materialize_markdown_data_image
 
 router = APIRouter(tags=['Orbital Mail'])
 CAMPAIGN_SELECT = '''
@@ -77,7 +79,7 @@ def _campaign_or_404(
     include_test_campaigns: bool = True,
 ) -> dict:
     row = db.execute(
-        text(CAMPAIGN_SELECT + ' WHERE id = :id AND tenant_code = :tenant_code'),
+        text(CAMPAIGN_SELECT + ' WHERE id = :id AND tenant_code = :tenant_code AND active = 1'),
         {'id': campaign_id, 'tenant_code': tenant_code},
     ).mappings().one_or_none()
     if row is None or (
@@ -104,7 +106,7 @@ def overview(
             SUM(CASE WHEN LOWER(status) = 'draft' THEN 1 ELSE 0 END) AS drafts,
             SUM(CASE WHEN LOWER(status) = 'completed' THEN 1 ELSE 0 END) AS sent
         FROM email_campaign
-        WHERE tenant_code = :tenant_code{visibility_sql}
+        WHERE tenant_code = :tenant_code AND active = 1{visibility_sql}
     '''), params).mappings().one()
     return {
         'campaigns': int(row['campaigns'] or 0),
@@ -143,7 +145,7 @@ def list_campaigns(
     if not auth.is_dev:
         params['test_campaign_pattern'] = TEST_CAMPAIGN_PATTERN
     rows = db.execute(text(CAMPAIGN_SELECT + f'''
-        WHERE tenant_code = :tenant_code{visibility_sql}
+        WHERE tenant_code = :tenant_code AND active = 1{visibility_sql}
         ORDER BY NVL(updated_at, created_at) DESC, id DESC
     '''), params).mappings()
     return [dict(row) for row in rows]
@@ -167,6 +169,7 @@ def create_campaign(
 ):
     auth.require_module_access()
     values = _campaign_write_values(payload, auth)
+    values['body_html'] = materialize_markdown_data_image(settings, auth.tenant_code, values.get('body_html'))
     db.execute(text('''
         INSERT INTO email_campaign (
             tenant_code,
@@ -177,6 +180,7 @@ def create_campaign(
             sender_name,
             sender_email,
             reply_to,
+            active,
             status,
             created_at,
             updated_at
@@ -189,6 +193,7 @@ def create_campaign(
             :sender_name,
             :sender_email,
             :reply_to,
+            1,
             :status,
             SYSDATE,
             SYSDATE
@@ -217,6 +222,7 @@ def update_campaign(
         raise HTTPException(status_code=409, detail='Não é possível alterar uma campanha em envio ou já enviada.')
 
     values = _campaign_write_values(payload, auth, current_campaign)
+    values['body_html'] = materialize_markdown_data_image(settings, auth.tenant_code, values.get('body_html'))
     result = db.execute(text('''
         UPDATE email_campaign
         SET internal_name = :internal_name,
@@ -382,3 +388,63 @@ def delete_campaign_queue(
     ensure_campaign(db, campaign_id, auth.tenant_code, auth.is_dev)
     removed = clear_pending_queue(db, campaign_id, auth.tenant_code)
     return {'removed': removed}
+
+
+@router.post('/campaigns/{campaign_id}/dev-test-send')
+def start_dev_campaign_test(
+    campaign_id: int,
+    payload: CampaignDevTestSend,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(get_auth_context),
+):
+    auth.require_dev()
+    campaign = _campaign_or_404(db, campaign_id, auth.tenant_code, auth.is_dev)
+    settings = get_settings()
+    if not settings.mail_send_enabled:
+        raise HTTPException(status_code=409, detail='Envio bloqueado por EMAIL_SEND_ENABLED=false.')
+
+    summary = queue_summary(db, campaign_id, auth.tenant_code)
+    target = str(payload.test_email).strip().lower()
+    if summary['total'] <= 0:
+        raise HTTPException(status_code=409, detail='Prepare a fila de teste antes de iniciar o envio.')
+    if summary['processing'] or summary['sent'] or summary['errors']:
+        raise HTTPException(status_code=409, detail='O teste exige uma fila nova, somente com itens pendentes.')
+    if summary['pending'] != summary['total'] or summary['distinct_emails'] != 1 or summary['single_email'] != target:
+        raise HTTPException(
+            status_code=409,
+            detail='Trava de segurança: todos os itens da fila precisam apontar exclusivamente para o e-mail de teste informado.',
+        )
+
+    provider = effective_provider(db, auth.tenant_code, settings)
+    if provider not in {'ses', 'smtp2go', 'smtp'}:
+        raise HTTPException(status_code=409, detail='Provider de envio não configurado.')
+    readiness = provider_status(settings, provider)
+    if not readiness['configured']:
+        raise HTTPException(status_code=409, detail=f'Provider {provider} não está configurado: {readiness["detail"]}.')
+
+    current = str(campaign.get('status') or 'draft').lower()
+    if current not in {'draft', 'ready', 'paused', 'error'}:
+        raise HTTPException(status_code=409, detail=f'Campanha em status {current} não pode iniciar este teste.')
+
+    db.execute(text('''
+        UPDATE email_queue
+           SET provider = :provider, updated_at = SYSDATE
+         WHERE email_campaign_id = :campaign_id
+           AND LOWER(tenant_code) = LOWER(:tenant_code)
+           AND LOWER(status) = 'pending'
+    '''), {'provider': provider, 'campaign_id': campaign_id, 'tenant_code': auth.tenant_code})
+    db.execute(text('''
+        UPDATE email_campaign
+           SET status = 'sending', send_date = NULL, updated_at = SYSDATE
+         WHERE id = :campaign_id
+           AND LOWER(tenant_code) = LOWER(:tenant_code)
+    '''), {'campaign_id': campaign_id, 'tenant_code': auth.tenant_code})
+    db.commit()
+    return {
+        'campaign_id': campaign_id,
+        'status': 'sending',
+        'provider': provider,
+        'test_email': target,
+        'messages': summary['total'],
+        'message': f'Teste real iniciado: {summary["total"]} mensagem(ns), todas direcionadas para {target}.',
+    }

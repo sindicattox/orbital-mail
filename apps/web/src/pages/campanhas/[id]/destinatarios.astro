@@ -7,7 +7,7 @@ const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <AppLayout title="Destinatários da campanha" devOnly>
   <section class="page-head">
-    <div><h1>Destinatários</h1><p id="campaignName">Fila preparada para a campanha.</p></div>
+    <div><h1>Destinatários</h1></div>
     <a class="button secondary" href={`${moduleBase}/campanhas`}>Voltar às campanhas</a>
   </section>
 
@@ -43,8 +43,7 @@ const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
     try {
       const response=await fetch(`${apiUrl}/campaigns/${id}`,{credentials:'include'});
       if(!response.ok) throw new Error(await apiErrors.fromResponse(response, 'Não foi possível carregar a campanha.'));
-      const data=await response.json();
-      document.querySelector('#campaignName').textContent=`Campanha: ${data.internal_name}`;
+      await response.json();
     } catch(error) {
       showError(apiErrors.fromException(error, 'Não foi possível carregar a campanha.'));
     }

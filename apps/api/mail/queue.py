@@ -37,6 +37,8 @@ def queue_summary(db: Session, campaign_id: int, tenant_code: str) -> dict:
     row = db.execute(
         text('''
             SELECT COUNT(*) AS total,
+                   COUNT(DISTINCT LOWER(TRIM(email))) AS distinct_emails,
+                   MIN(LOWER(TRIM(email))) AS single_email,
                    SUM(CASE WHEN LOWER(status) = 'pending' THEN 1 ELSE 0 END) AS pending,
                    SUM(CASE WHEN LOWER(status) = 'processing' THEN 1 ELSE 0 END) AS processing,
                    SUM(CASE WHEN LOWER(status) = 'sent' THEN 1 ELSE 0 END) AS sent,
@@ -47,7 +49,10 @@ def queue_summary(db: Session, campaign_id: int, tenant_code: str) -> dict:
         '''),
         {'campaign_id': campaign_id, 'tenant_code': tenant_code},
     ).mappings().one()
-    return {key: int(row[key] or 0) for key in ('total', 'pending', 'processing', 'sent', 'errors')}
+    summary = {key: int(row[key] or 0) for key in ('total', 'pending', 'processing', 'sent', 'errors')}
+    summary['distinct_emails'] = int(row['distinct_emails'] or 0)
+    summary['single_email'] = str(row['single_email'] or '') or None
+    return summary
 
 
 def _recipient_filter_sql(

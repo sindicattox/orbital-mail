@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from core.settings import Settings, get_settings
 from mail.delivery_policy import DeliveryDecision, accepted_decision, exception_decision
 from mail.delivery_provider import MailSendPayload, send_provider_message
+from mail.runtime_config import effective_provider
 from mail.unsubscribe import (
     append_unsubscribe_footer,
     one_click_unsubscribe_url,
@@ -100,7 +101,7 @@ class MailDeliveryWorkerService:
             params["test_campaign_pattern"] = TEST_CAMPAIGN_PATTERN
 
         statement = text(f"""
-            SELECT q.id, q.email_campaign_id, q.tenant_code, q.email, q.name, q.try_count,
+            SELECT q.id, q.email_campaign_id, q.tenant_code, q.email, q.name, q.try_count, q.provider,
                    c.subject, c.body_html, c.body_text,
                    c.sender_name, c.sender_email, c.reply_to
               FROM email_queue q
@@ -329,4 +330,9 @@ class MailDeliveryWorkerService:
         )
         if item is None:
             return None
-        return self.deliver_claimed(item, provider)
+        selected_provider = str(item.get("provider") or "").strip().lower() or effective_provider(
+            self.db, str(item["tenant_code"]), self.settings
+        )
+        if selected_provider not in {"ses", "smtp2go", "smtp"}:
+            selected_provider = provider
+        return self.deliver_claimed(item, selected_provider)

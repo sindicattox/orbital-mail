@@ -1,6 +1,7 @@
 ---
 import { OrbitalSidebar, OrbitalTopBar } from '@orbital/ui';
 import '@orbital/ui/tokens.css';
+import authGuardSource from '@orbital/ui/auth-guard.js?raw';
 import '../styles/global.css';
 import '../styles/ui.css';
 import { apiUrl } from '../config/api-url';
@@ -14,18 +15,21 @@ const mailItems = [
   { id: 'overview', label: 'Visão geral', href: `${moduleBase}/`, exact: true, badge: 'VG' },
   { id: 'campaigns', label: 'Campanhas', href: `${moduleBase}/campanhas`, badge: 'CA' },
   { id: 'dispatch-queue', label: 'Fila de envios', href: `${moduleBase}/fila-envios`, badge: 'FE' },
-  { id: 'lists', label: 'Listas', href: `${moduleBase}/listas`, disabled: true, badge: 'LI' },
-  { id: 'templates', label: 'Modelos', href: `${moduleBase}/modelos`, badge: 'MO' },
   { id: 'test-send', label: 'Teste de envio', href: `${moduleBase}/teste-envio`, badge: 'TE' },
+  { id: 'settings', label: 'Configurações', href: `${moduleBase}/configuracoes`, badge: 'CF' },
 ];
 ---
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-orbital-protected data-auth-api={apiUrl} data-auth-path="/auth/context" data-module-label="Mail">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width" />
   <meta name="description" content={description} />
   <title>{title} · Orbital Mail</title>
+  <style is:inline>
+    html[data-orbital-protected]:not([data-orbital-auth="authenticated"]):not([data-orbital-auth="blocked"]) body { visibility: hidden; }
+  </style>
+  <script is:inline set:html={authGuardSource}></script>
   <script is:inline src={`${moduleBase}/scripts/api-errors.js`}></script>
 </head>
 <body

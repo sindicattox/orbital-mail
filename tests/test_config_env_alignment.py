@@ -36,6 +36,8 @@ APP_ONLY_KEYS = {
         'NOTE_WORKER_BATCH_SIZE', 'NOTE_WORKER_POLL_SECONDS',
         'NOTE_WORKER_RECOVERY_SECONDS', 'NOTE_WORKER_STALE_SECONDS',
         'NOTE_WORKER_SYSTEMD_SERVICE', 'ORACLE_NOTE_WORKER_POOL_SIZE',
+        'ORACLE_SYSTEM_EMAIL_WORKER_POOL_SIZE', 'SYSTEM_EMAIL_WORKER_POLL_SECONDS',
+        'SYSTEM_EMAIL_WORKER_SYSTEMD_SERVICE',
     },
     'apps/api/config/production/app.env': {
         'APEX_APPLICATION_ID', 'APEX_MENU_LIST', 'APP_DEBUG_DETAILS', 'APP_PUBLIC_URL',
@@ -46,6 +48,8 @@ APP_ONLY_KEYS = {
         'NOTE_WORKER_BATCH_SIZE', 'NOTE_WORKER_POLL_SECONDS',
         'NOTE_WORKER_RECOVERY_SECONDS', 'NOTE_WORKER_STALE_SECONDS',
         'NOTE_WORKER_SYSTEMD_SERVICE', 'ORACLE_NOTE_WORKER_POOL_SIZE',
+        'ORACLE_SYSTEM_EMAIL_WORKER_POOL_SIZE', 'SYSTEM_EMAIL_WORKER_POLL_SECONDS',
+        'SYSTEM_EMAIL_WORKER_SYSTEMD_SERVICE',
     },
     'apps/api/config/local/auth.env': {
         'AUTH_SESSION_SECRET', 'SSO_CLIENT_ID', 'SSO_CLIENT_SECRET', 'SSO_REDIRECT_URIS',
@@ -53,8 +57,12 @@ APP_ONLY_KEYS = {
     'apps/api/config/production/auth.env': {
         'AUTH_SESSION_SECRET', 'SSO_CLIENT_ID', 'SSO_CLIENT_SECRET', 'SSO_REDIRECT_URIS',
     },
-    'apps/api/config/local/services.env': {'EMAIL_TEST_RECIPIENT'},
-    'apps/api/config/production/services.env': {'EMAIL_TEST_RECIPIENT'},
+    'apps/api/config/local/services.env': {
+        'EMAIL_TEST_RECIPIENT', 'SES_AWS_REGION', 'SES_CONFIGURATION_SET_NAME',
+    },
+    'apps/api/config/production/services.env': {
+        'EMAIL_TEST_RECIPIENT', 'SES_AWS_REGION', 'SES_CONFIGURATION_SET_NAME',
+    },
     'apps/web/config/local/services.env': {'REPORTS_API_URL', 'REPORTS_WEB_URL'},
     'apps/web/config/production/services.env': {'REPORTS_API_URL', 'REPORTS_WEB_URL'},
 }
@@ -77,7 +85,7 @@ MAIL_ONLY_KEYS = {
         'AUTH_CONTEXT_URL', 'AUTH_MODE', 'AUTH_TIMEOUT_SECONDS',
     },
     'apps/api/config/local/services.env': {
-        'EMAIL_TEST_MAX_MESSAGES', 'EMAIL_TEST_MAX_RECIPIENTS',
+        'AWS_SES_REGION', 'EMAIL_TEST_MAX_MESSAGES', 'EMAIL_TEST_MAX_RECIPIENTS',
         'EMAIL_TEST_MAX_REPETITIONS', 'EMAIL_TEST_MAX_WORKERS',
         'EMAIL_UPLOAD_DIR', 'EMAIL_UPLOAD_MAX_BYTES', 'EMAIL_UPLOAD_PUBLIC_URL',
         'EMAIL_WORKER_DELAY_MS', 'EMAIL_WORKER_MAX_ATTEMPTS',
@@ -87,7 +95,7 @@ MAIL_ONLY_KEYS = {
     'apps/web/config/local/services.env': {'PUBLIC_ORBITAL_HOME_URL'},
     'apps/web/config/production/services.env': {'PUBLIC_ORBITAL_HOME_URL'},
     'apps/api/config/production/services.env': {
-        'EMAIL_TEST_MAX_MESSAGES', 'EMAIL_TEST_MAX_RECIPIENTS',
+        'AWS_SES_REGION', 'EMAIL_TEST_MAX_MESSAGES', 'EMAIL_TEST_MAX_RECIPIENTS',
         'EMAIL_TEST_MAX_REPETITIONS', 'EMAIL_TEST_MAX_WORKERS',
         'EMAIL_UPLOAD_DIR', 'EMAIL_UPLOAD_MAX_BYTES', 'EMAIL_UPLOAD_PUBLIC_URL',
         'EMAIL_WORKER_DELAY_MS', 'EMAIL_WORKER_MAX_ATTEMPTS',

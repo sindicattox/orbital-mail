@@ -23,7 +23,7 @@ _manager_lock = threading.Lock()
 
 
 class LoopTestStart(BaseModel):
-    provider: str = Field(pattern="^(smtp2go|smtp)$")
+    provider: str = Field(pattern="^(ses|smtp2go|smtp)$")
     emails: list[EmailStr] | None = None
     repetitions: int = Field(default=3, ge=1)
     workers: int = Field(default=2, ge=1)

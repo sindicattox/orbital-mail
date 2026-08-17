@@ -6,7 +6,7 @@ const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 <AppLayout title="Teste de loop" description="Teste controlado da fila e dos workers" devOnly>
   <section class="page-head campaign-page-head">
-    <div><h1>Teste controlado de loop</h1><p>Cria uma campanha de teste, adiciona mensagens na EMAIL_QUEUE e processa com workers concorrentes.</p></div>
+    <div><h1>Teste controlado de loop</h1></div>
     <a class="button secondary" href={`${moduleBase}/`}>Voltar</a>
   </section>
 
@@ -18,7 +18,7 @@ const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
   <form id="loopForm" class="card campaign-form campaign-form-two-columns">
     <section class="campaign-column campaign-data-column">
       <div class="form-section-head"><h2>Controle</h2><p>Lista, repetições e quantidade de workers.</p></div>
-      <label>Provedor <span>*</span><select name="provider" required><option value="smtp2go">SMTP2GO</option><option value="smtp">SMTP tradicional</option></select></label>
+      <label>Provedor <span>*</span><select name="provider" required><option value="smtp2go">SMTP2GO</option><option value="ses">Amazon SES</option><option value="smtp">SMTP tradicional</option></select></label>
       <div class="test-emails-field">
         <div class="test-emails-head"><strong>E-mails autorizados</strong><span id="allowedCount">Carregando...</span></div>
         <textarea id="allowedEmails" rows="8" readonly aria-label="E-mails autorizados para teste"></textarea>

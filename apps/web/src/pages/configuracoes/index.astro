@@ -1,0 +1,48 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { apiUrl } from '../../config/api-url';
+const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<AppLayout title="Configurações" devOnly>
+  <section class="page-head">
+    <div><h1>Configurações de envio</h1></div>
+    <a class="button secondary" href={`${moduleBase}/`}>Voltar</a>
+  </section>
+  <section class="card dev-highlight dev-settings-card">
+    <div class="dev-warning"><strong>DEV</strong> Esta configuração altera o provider usado pelo worker deste tenant.</div>
+    <div id="message" class="message" hidden></div>
+    <form id="providerForm" class="settings-form">
+      <label>Provider de envio
+        <select id="provider" name="provider" required>
+          <option value="ses">Amazon SES (AWS)</option>
+          <option value="smtp2go">SMTP2GO</option>
+          <option value="smtp">SMTP tradicional</option>
+        </select>
+      </label>
+      <div id="providerStatus" class="provider-status"></div>
+      <button class="button" type="submit">Salvar provider</button>
+    </form>
+  </section>
+</AppLayout>
+<script is:inline define:vars={{ apiUrl }}>
+  const form=document.querySelector('#providerForm');
+  const select=document.querySelector('#provider');
+  const message=document.querySelector('#message');
+  const status=document.querySelector('#providerStatus');
+  const apiErrors=window.OrbitalApiErrors;
+  function showMessage(text,type='error'){message.hidden=false;message.className=`message ${type}`;message.textContent=text;}
+  function renderStatus(data){
+    select.value=data.provider||'smtp2go';
+    status.innerHTML=(data.providers||[]).map(item=>`<div><strong>${item.code==='ses'?'Amazon SES':item.code.toUpperCase()}</strong><span>${item.configured?'Configurado':'Não configurado'} · ${item.detail}</span></div>`).join('');
+    const sendState=document.createElement('div');
+    sendState.className='send-state';
+    sendState.textContent=data.send_enabled?'EMAIL_SEND_ENABLED=true · ENVIO LIBERADO':'EMAIL_SEND_ENABLED=false · envio bloqueado';
+    status.prepend(sendState);
+  }
+  async function load(){try{const r=await fetch(`${apiUrl}/settings/delivery`,{credentials:'include',cache:'no-store'});if(!r.ok)throw new Error(await apiErrors.fromResponse(r,'Não foi possível carregar as configurações.'));renderStatus(await r.json());}catch(e){showMessage(apiErrors.fromException(e,'Não foi possível carregar as configurações.'));}}
+  form.addEventListener('submit',async e=>{e.preventDefault();const button=form.querySelector('button');button.disabled=true;message.hidden=true;try{const r=await fetch(`${apiUrl}/settings/delivery`,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:select.value})});if(!r.ok)throw new Error(await apiErrors.fromResponse(r,'Não foi possível trocar o provider.'));const data=await r.json();renderStatus(data);showMessage(`Provider ativo: ${data.provider}.`,'success');}catch(err){showMessage(apiErrors.fromException(err,'Não foi possível trocar o provider.'));}finally{button.disabled=false;}});
+  load();
+</script>
+<style>
+  .dev-settings-card{max-width:760px;padding:1rem}.dev-warning{margin-bottom:1rem;padding:.75rem;border-radius:.55rem;background:color-mix(in srgb,var(--orbital-danger) 10%,var(--orbital-card-background));color:var(--orbital-danger);font-weight:700}.settings-form{display:grid;gap:1rem}.provider-status{display:grid;gap:.5rem}.provider-status>div{display:flex;justify-content:space-between;gap:1rem;padding:.65rem;border:1px solid var(--border);border-radius:.5rem}.provider-status span{color:var(--muted)}.provider-status .send-state{border-color:var(--orbital-danger);color:var(--orbital-danger);font-weight:700}
+</style>
