@@ -1,21 +1,28 @@
-.env
-*.env
-!.env.example
+.venv/
+.idea/
+node_modules/
+dist/
+.astro/
+.pytest_cache/
 __pycache__/
 *.py[cod]
-.pytest_cache/
+logs/
+*.log
+.DS_Store
+
+# Ambientes virtuais / builds locais
 apps/api/.venv/
 apps/web/node_modules/
 apps/web/.astro/
 apps/web/dist/
-logs/
-*.log
-.DS_Store
-.idea/
+
 # Lista local e privada de destinatários usados em testes de envio
 apps/api/.emails_para_teste
 !apps/api/.emails_para_teste.example
 
-# Arquivos reais de ambiente por aplicação
+# Ignorar somente arquivos chamados literalmente ".env"
 **/.env
+
+# Permitir exemplos
+!.env.example
 !**/.env.example
