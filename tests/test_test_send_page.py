@@ -30,7 +30,7 @@ def test_test_send_page_is_dev_only_and_api_requires_dev():
     assert 'context.require_dev()' in service
 
 
-def test_env_documents_both_providers_and_send_lock():
+def test_env_documents_both_providers_and_global_send_lock():
     env = ''.join(p.read_text() for p in sorted((ROOT / 'apps/api/config/local').glob('*.env')))
     for key in [
         "EMAIL_SEND_ENABLED=false",
@@ -49,3 +49,10 @@ def test_test_page_shows_provider_diagnostic():
     assert "Aceito pelo provedor" in page
     assert "não significa entregue" in page
     assert "Copiar diagnóstico" in page
+
+
+def test_test_send_page_explicitly_bypasses_global_send_switch():
+    page = (ROOT / "apps/web/src/pages/teste-envio/index.astro").read_text()
+    service = (ROOT / "apps/api/mail/delivery_test_service.py").read_text()
+    assert "não depende de EMAIL_SEND_ENABLED" in page
+    assert "if not settings.mail_send_enabled" not in service

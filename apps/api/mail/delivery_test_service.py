@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 
 from core.auth import AuthContext, get_auth_context
 from core.settings import get_settings
@@ -45,12 +45,6 @@ def _send_smtp(payload: TestSendPayload) -> TestSendResponse:
 @router.post("/test-send", response_model=TestSendResponse)
 def send_test_email(payload: TestSendPayload, context: AuthContext = Depends(get_auth_context)) -> TestSendResponse:
     context.require_dev()
-    settings = get_settings()
-    if not settings.mail_send_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Envio bloqueado. Configure EMAIL_SEND_ENABLED=true somente para executar o teste.",
-        )
     if payload.provider == "smtp2go":
         return _send_smtp2go(payload)
     if payload.provider == "ses":

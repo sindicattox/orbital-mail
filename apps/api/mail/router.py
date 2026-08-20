@@ -46,6 +46,11 @@ FROM email_campaign
 TECHNICAL_CAMPAIGN_FIELDS = ('internal_name', 'body_text', 'sender_name', 'sender_email', 'reply_to')
 
 
+def _materialize_campaign_body(body_html: str | None, tenant_code: str) -> str | None:
+    """Normalize legacy inline images using the active runtime configuration."""
+    return materialize_markdown_data_image(get_settings(), tenant_code, body_html)
+
+
 def _campaign_write_values(payload: CampaignCreate | CampaignUpdate, auth: AuthContext, current: dict | None = None) -> dict:
     values = payload.model_dump(mode='json')
     if auth.is_dev:
@@ -169,7 +174,7 @@ def create_campaign(
 ):
     auth.require_module_access()
     values = _campaign_write_values(payload, auth)
-    values['body_html'] = materialize_markdown_data_image(settings, auth.tenant_code, values.get('body_html'))
+    values['body_html'] = _materialize_campaign_body(values.get('body_html'), auth.tenant_code)
     db.execute(text('''
         INSERT INTO email_campaign (
             tenant_code,
@@ -222,7 +227,7 @@ def update_campaign(
         raise HTTPException(status_code=409, detail='Não é possível alterar uma campanha em envio ou já enviada.')
 
     values = _campaign_write_values(payload, auth, current_campaign)
-    values['body_html'] = materialize_markdown_data_image(settings, auth.tenant_code, values.get('body_html'))
+    values['body_html'] = _materialize_campaign_body(values.get('body_html'), auth.tenant_code)
     result = db.execute(text('''
         UPDATE email_campaign
         SET internal_name = :internal_name,

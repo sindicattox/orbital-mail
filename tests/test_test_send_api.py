@@ -37,14 +37,12 @@ def test_smtp2go_requires_key(monkeypatch):
         assert exc.status_code == 503
 
 
-def test_test_endpoint_is_locked_by_default(monkeypatch):
+def test_test_endpoint_ignores_global_send_switch(monkeypatch):
+    expected = test_send.TestSendResponse(ok=True, provider="smtp2go", message="ok")
     monkeypatch.setattr(test_send, "get_settings", lambda: SimpleNamespace(mail_send_enabled=False))
+    monkeypatch.setattr(test_send, "_send_smtp2go", lambda value: expected)
     context = SimpleNamespace(require_dev=lambda: None)
-    try:
-        test_send.send_test_email(payload(), context)
-        assert False, "deveria falhar"
-    except HTTPException as exc:
-        assert exc.status_code == 409
+    assert test_send.send_test_email(payload(), context) == expected
 
 
 def test_test_endpoint_routes_provider(monkeypatch):
