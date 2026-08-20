@@ -33,7 +33,9 @@ def test_dev_provider_settings_are_red_and_dev_only():
     assert "configurações" in layout
     assert "devonly" in page
     assert "dev-highlight" in page
-    assert "/configuracoes" in css
+    assert "href: `${modulebase}/configuracoes`, devonly: true" in layout
+    assert "import '@orbital/ui/base.css';" in layout
+    assert "href*=" not in css
 
 
 def test_ses_is_a_supported_delivery_provider():

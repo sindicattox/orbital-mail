@@ -19,8 +19,9 @@ def test_home_and_navigation_link_to_test_send_as_dev_only():
     assert 'href={`${moduleBase}/teste-envio`}' in home
     assert "href: `${moduleBase}/teste-envio`" in layout
     assert 'dev-only dev-highlight' in home
-    assert 'data-is-dev="true"' in css
-    assert 'a[href*="/teste-envio"]' in css
+    assert "href: `${moduleBase}/teste-envio`, devOnly: true" in layout
+    assert "data-orbital-dev-required" in layout
+    assert "href*=" not in css
 
 
 def test_test_send_page_is_dev_only_and_api_requires_dev():

@@ -26,8 +26,10 @@ def test_queue_pages_and_navigation_are_dev_only():
     recipients_page = (ROOT / 'apps/web/src/pages/campanhas/[id]/destinatarios.astro').read_text()
 
     assert "label: 'Fila de envios'" in layout
-    assert 'body:not([data-is-dev="true"]) a[href*="/fila-envios"]' in css
-    assert 'body[data-is-dev="true"] a[href*="/fila-envios"]' in css
+    assert "id: 'dispatch-queue'" in layout
+    assert "devOnly: true" in layout
+    assert 'href*=' not in css
+    assert "import '@orbital/ui/base.css';" in layout
     assert 'devOnly>' in queue_page
     assert 'devOnly>' in recipients_page
 

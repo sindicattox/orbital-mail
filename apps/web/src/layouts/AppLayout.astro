@@ -4,6 +4,7 @@ import '@orbital/ui/tokens.css';
 import authGuardSource from '@orbital/ui/auth-guard.js?raw';
 import '../styles/global.css';
 import '../styles/ui.css';
+import '@orbital/ui/base.css';
 import { apiUrl } from '../config/api-url';
 import orbitalMailAuthScript from '../assets/auth/orbital-mail-auth.js?raw';
 
@@ -12,15 +13,15 @@ const { title, description = '', devOnly = false } = Astro.props;
 const moduleBase = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 const mailItems = [
-  { id: 'overview', label: 'Visão geral', href: `${moduleBase}/`, exact: true, badge: 'VG' },
-  { id: 'campaigns', label: 'Campanhas', href: `${moduleBase}/campanhas`, badge: 'CA' },
-  { id: 'dispatch-queue', label: 'Fila de envios', href: `${moduleBase}/fila-envios`, badge: 'FE' },
-  { id: 'test-send', label: 'Teste de envio', href: `${moduleBase}/teste-envio`, badge: 'TE' },
-  { id: 'settings', label: 'Configurações', href: `${moduleBase}/configuracoes`, badge: 'CF' },
+  { id: 'overview', label: 'Visão geral', href: `${moduleBase}/`, exact: true },
+  { id: 'campaigns', label: 'Campanhas', href: `${moduleBase}/campanhas` },
+  { id: 'dispatch-queue', label: 'Fila de envios', href: `${moduleBase}/fila-envios`, devOnly: true },
+  { id: 'test-send', label: 'Teste de envio', href: `${moduleBase}/teste-envio`, devOnly: true },
+  { id: 'settings', label: 'Configurações', href: `${moduleBase}/configuracoes`, devOnly: true },
 ];
 ---
 <!doctype html>
-<html lang="pt-BR" data-orbital-protected data-auth-api={apiUrl} data-auth-path="/auth/context" data-module-label="Mail">
+<html lang="pt-BR" data-orbital-protected data-auth-api={apiUrl} data-auth-path="/auth/context" data-module-label="Mail" data-orbital-dev-required={devOnly ? 'true' : undefined}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width" />
@@ -36,7 +37,6 @@ const mailItems = [
   data-api-url={apiUrl}
   data-orbital-home-url={import.meta.env.PUBLIC_ORBITAL_HOME_URL || '/'}
   data-module-base={moduleBase}
-  data-dev-only-page={devOnly ? 'true' : undefined}
 >
   <div class="app-shell">
     <OrbitalTopBar
@@ -49,7 +49,7 @@ const mailItems = [
         items={mailItems}
         ariaLabel="Navegação do Orbital Mail"
       />
-      <main class:list={["app-main", { "dev-only": devOnly, "dev-highlight-page": devOnly }]}><slot /></main>
+      <main class:list={["app-main", { "dev-highlight-page": devOnly }]} data-orbital-dev-highlight={devOnly ? 'true' : undefined}><slot /></main>
     </div>
   </div>
   <script is:inline set:html={orbitalMailAuthScript}></script>

@@ -25,8 +25,9 @@ def test_mail_grid_matches_orbital_shell():
     css = (WEB / "src/styles/global.css").read_text()
     layout = (WEB / "src/layouts/AppLayout.astro").read_text()
     compact = css.replace(" ", "")
-    assert "grid-template-columns:240pxminmax(0,1fr)" in compact
+    assert "grid-template-columns:var(--orbital-sidebar-width)minmax(0,1fr)" in compact
     assert "padding:1.25rem" in compact
     assert ".app-main{min-width:0;width:100%;padding:1.25rem;margin:0}" in compact
     assert "max-width:1600px" not in compact
     assert "import '@orbital/ui/tokens.css';" in layout
+    assert "import '@orbital/ui/base.css';" in layout

@@ -91,13 +91,20 @@
     }
   }
 
-  const base = new URL(configuredApiUrl, window.location.origin);
-  const contextUrl = new URL(`${base.pathname.replace(/\/+$/, '')}/auth/context`, base.origin);
-  window.fetch(contextUrl.toString(), { cache: 'no-store' })
-    .then(async (response) => {
-      if (!response.ok) return null;
-      return response.json().catch(() => null);
-    })
+  async function resolveContext() {
+    if (window.__orbitalAuthReady) {
+      await Promise.resolve(window.__orbitalAuthReady).catch(() => false);
+      if (window.__orbitalAuthContext) return window.__orbitalAuthContext;
+    }
+
+    const base = new URL(configuredApiUrl, window.location.origin);
+    const contextUrl = new URL(`${base.pathname.replace(/\/+$/, '')}/auth/context`, base.origin);
+    const response = await window.fetch(contextUrl.toString(), { cache: 'no-store' });
+    if (!response.ok) return null;
+    return response.json().catch(() => null);
+  }
+
+  resolveContext()
     .then((context) => { if (context) applyContext(context); })
     .catch(() => {});
 })();
